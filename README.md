@@ -137,24 +137,12 @@ NEXT_PUBLIC_APP_NAME=MyAILearning
 | `NOTION_VERSION` | No | Sent to the API. The client tries `2025-09-03`, then `2022-06-28`. |
 | `NEXT_PUBLIC_APP_NAME` | No | Display name. The token is not public. |
 
-The database id for the current tracker is:
-
-```text
-07ca163e-4c8f-4d17-be42-fe550ef5b178
-```
-
-The data source id, if you want to set it explicitly:
-
-```text
-2b28f5c6-17ed-465a-9402-d5a19e66a082
-```
-
 ## Connecting Notion
 
 1. Open https://www.notion.so/my-integrations and create an internal integration.
 2. Copy the secret into `NOTION_TOKEN`.
 3. In Notion, open **Events & Learning Tracker** (under Sumith 2026) and use the **Connections** menu to share it with that integration. Sharing only the parent page is not always enough; the database itself must be connected.
-4. Put the database id above into `NOTION_DATABASE_ID`.
+4. Copy the database id from the Notion database URL into `NOTION_DATABASE_ID`. Leave `NOTION_DATA_SOURCE_ID` empty unless you already have it.
 5. Restart `npm run dev`.
 6. Settings should say **Live Notion**. The banner on the dashboard disappears.
 
