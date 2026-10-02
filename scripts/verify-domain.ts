@@ -5,6 +5,7 @@ import { deferrals, focusList } from "../src/lib/focus";
 import { filterItems } from "../src/lib/filters";
 import { embedMeta, readMeta, stripMeta } from "../src/lib/meta";
 import { mapNotionPage } from "../src/lib/notion/mapper";
+import { attentionReasons, suggestHorizon } from "../src/lib/plan";
 import { assessPace, progressByTrack, weekLoads } from "../src/lib/progress";
 import { TRACKS } from "../src/lib/constants";
 
@@ -38,7 +39,7 @@ const page = {
 
 const mapped = mapNotionPage(page);
 assert.equal(mapped.name, "Example workshop");
-assert.equal(mapped.tracks[0], "AI Discovery");
+assert.equal(mapped.tracks[0], "SEO-AEO-GEO");
 assert.equal(mapped.tracks[1], "Cloud");
 assert.equal(mapped.notes, "Read the guide");
 assert.equal(mapped.progress, 55);
@@ -56,6 +57,10 @@ assert.deepEqual(sparse.tracks, []);
 const items = createSeedItems();
 const ids = new Set(items.map((item) => item.id));
 assert.equal(ids.size, items.length, "demo ids must be unique");
+
+const core = items.find((item) => item.name === "Sample core course");
+assert.equal(suggestHorizon(core!, today), "Now");
+assert.ok(attentionReasons(core!, today).includes("Unclear next step"));
 
 const focus = focusList(items, today, 8).map((entry) => entry.item.name);
 assert.ok(focus.some((name) => name === "Sample core course"));

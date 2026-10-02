@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge, priorityTone, ProgressBar, statusTone } from "@/components/ui";
-import { ITEM_STATUSES } from "@/lib/constants";
 import { removeItem, saveItem } from "@/lib/client-api";
 import { formatDateRange, formatDisplayDate, mapsDirectionsUrl, mapsSearchUrl } from "@/lib/dates";
+import { horizonIsSuggested, suggestHorizon } from "@/lib/plan";
 import { effectiveProgress, progressIsEstimated } from "@/lib/progress";
 import { relatedItems } from "@/lib/filters";
 import type { LearningItem } from "@/types/learning";
@@ -15,10 +15,12 @@ export function LearningDetail({
   item,
   items,
   readOnly,
+  statuses,
 }: {
   item: LearningItem;
   items: LearningItem[];
   readOnly: boolean;
+  statuses: string[];
 }) {
   const related = relatedItems(items, item);
   const progress = effectiveProgress(item);
@@ -39,7 +41,21 @@ export function LearningDetail({
           </div>
           <p className="mt-3 text-sm text-muted">{[item.origin, item.provider].filter((value, index, all) => value && all.indexOf(value) === index).join(" · ") || "No source yet"}</p>
           {item.offer ? <p className="mt-3 text-sm leading-6">{item.offer}</p> : null}
-          <StatusEditor item={item} readOnly={readOnly} />
+          <StatusEditor item={item} readOnly={readOnly} statuses={statuses} />
+        </Section>
+        <Section title="Plan">
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <Fact label="Horizon" value={item.horizon || (horizonIsSuggested(item) ? `Suggested: ${suggestHorizon(item)}` : "—")} />
+            <Fact label="Momentum" value={item.momentum || "—"} />
+            <Fact label="Time slot" value={item.timeSlot || "—"} />
+            <Fact label="Planned hours" value={item.plannedHours === undefined ? "—" : String(item.plannedHours)} />
+            <Fact label="Actual hours" value={item.actualHours === undefined ? "—" : String(item.actualHours)} />
+            <Fact label="Last learning" value={formatDisplayDate(item.lastLearning)} />
+            <Fact label="Review date" value={formatDisplayDate(item.reviewDate)} />
+            <Fact label="Blockers" value={(item.blockers || []).join(", ") || "—"} />
+          </dl>
+          {item.why ? <p className="mt-3 text-sm leading-6">{item.why}</p> : null}
+          {item.outcome ? <p className="mt-2 text-sm leading-6">{item.outcome}</p> : null}
         </Section>
         <Section title="Progress">
           <div className="mb-2 flex justify-between text-sm">
@@ -136,6 +152,15 @@ export function LearningDetail({
   );
 }
 
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
+      <dd className="mt-1">{value}</dd>
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-line bg-elev p-4">
@@ -205,7 +230,7 @@ function DateEditor({ item, readOnly }: { item: LearningItem; readOnly: boolean 
   );
 }
 
-function StatusEditor({ item, readOnly }: { item: LearningItem; readOnly: boolean }) {
+function StatusEditor({ item, readOnly, statuses }: { item: LearningItem; readOnly: boolean; statuses: string[] }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   return (
@@ -225,7 +250,7 @@ function StatusEditor({ item, readOnly }: { item: LearningItem; readOnly: boolea
           }
         }}
       >
-        {ITEM_STATUSES.map((status) => (
+        {(statuses.includes(item.status) ? statuses : [item.status, ...statuses]).map((status) => (
           <option key={status}>{status}</option>
         ))}
       </select>

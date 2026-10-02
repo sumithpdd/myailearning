@@ -1,4 +1,5 @@
 import { NotionRequestError, getNotionContext, notionConfigured } from "@/lib/notion/client";
+import { catalogFromSchema, type Catalog } from "@/lib/notion/schema";
 import { archiveNotionItem, createNotionItem, updateNotionItem } from "@/lib/notion/mutations";
 import { getNotionItem, listNotionItems } from "@/lib/notion/queries";
 import type { ItemCollection, LearningItem, LearningItemInput, NotionConnection } from "@/types/learning";
@@ -16,10 +17,20 @@ export async function describeConnection(): Promise<NotionConnection> {
     return {
       status: "live",
       label: "Connected to Notion",
-      detail: context.databaseTitle || "Events & Learning Tracker",
+      detail: context.databaseTitle || "Notion database",
     };
   } catch (error) {
     return { status: "offline", label: "Notion unreachable", detail: errorMessage(error) };
+  }
+}
+
+export async function listCatalog(): Promise<Catalog> {
+  if (!notionConfigured()) return catalogFromSchema();
+  try {
+    const context = await getNotionContext();
+    return catalogFromSchema(context.schema);
+  } catch {
+    return catalogFromSchema();
   }
 }
 
@@ -91,6 +102,16 @@ export function toInput(item: LearningItem): LearningItemInput {
     priority: item.priority,
     tracks: item.tracks,
     origin: item.origin,
+    horizon: item.horizon,
+    momentum: item.momentum,
+    timeSlot: item.timeSlot,
+    blockers: item.blockers,
+    why: item.why,
+    outcome: item.outcome,
+    plannedHours: item.plannedHours,
+    actualHours: item.actualHours,
+    lastLearning: item.lastLearning,
+    reviewDate: item.reviewDate,
     provider: item.provider,
     startDate: item.startDate,
     endDate: item.endDate,

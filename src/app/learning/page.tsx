@@ -2,12 +2,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ItemBrowser } from "@/components/learning/item-browser";
 import { PageFrame } from "@/components/ui";
-import { listItems } from "@/lib/repository";
+import { listCatalog, listItems } from "@/lib/repository";
 
 export const metadata = { title: "Learning" };
 
 export default async function LearningPage() {
-  const collection = await listItems();
+  const [collection, catalog] = await Promise.all([listItems(), listCatalog()]);
   return (
     <PageFrame
       title="Learning"
@@ -25,6 +25,7 @@ export default async function LearningPage() {
           warning={collection.warning}
           readOnly={collection.readOnly}
           basePath="/learning"
+          catalog={catalog}
         />
       </Suspense>
     </PageFrame>

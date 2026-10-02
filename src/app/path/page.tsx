@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { ModeBanner, PageFrame, ProgressBar } from "@/components/ui";
-import { FINISH_LINE, TRACKS, WEEKLY_HOURS_MAX, WEEKLY_HOURS_MIN, isTerminalStatus } from "@/lib/constants";
+import { FINISH_LINE, WEEKLY_HOURS_MAX, WEEKLY_HOURS_MIN, isTerminalStatus } from "@/lib/constants";
 import { formatDisplayDate } from "@/lib/dates";
 import { assessPace, progressByTrack } from "@/lib/progress";
-import { listItems } from "@/lib/repository";
+import { listCatalog, listItems } from "@/lib/repository";
 import type { LearningItem } from "@/types/learning";
 
 export const metadata = { title: "AI Expert Path" };
 
 export default async function PathPage() {
-  const collection = await listItems();
+  const [collection, catalog] = await Promise.all([listItems(), listCatalog()]);
   const pace = assessPace(collection.items);
-  const tracks = progressByTrack(collection.items, TRACKS.filter((track) => track.id !== "Cloud"));
+  const tracks = progressByTrack(
+    collection.items,
+    catalog.track.map((track) => ({ id: track, label: track })),
+  );
 
   return (
     <PageFrame
@@ -34,7 +37,6 @@ export default async function PathPage() {
                 <span>{track.percent}%</span>
               </div>
               <ProgressBar value={track.percent} />
-              <p className="mt-1 text-xs text-muted">{TRACKS.find((entry) => entry.id === track.id)?.description}</p>
             </div>
           ))}
         </div>

@@ -1,17 +1,27 @@
 import Link from "next/link";
 import { LearningCard } from "@/components/learning/cards";
 import { Badge, ModeBanner, ProgressBar } from "@/components/ui";
-import { FINISH_LINE, TRACKS, isEventType } from "@/lib/constants";
+import { FINISH_LINE, isEventType } from "@/lib/constants";
 import { deferrals, evidenceGaps, focusList } from "@/lib/focus";
 import { formatDateRange, formatDisplayDate, todayISO } from "@/lib/dates";
+import { attentionList, nearTermItems } from "@/lib/plan";
 import { assessPace, counts, progressByTrack, weekLoads } from "@/lib/progress";
 import type { ItemCollection } from "@/types/learning";
 
-export function Dashboard({ collection }: { collection: ItemCollection }) {
+export function Dashboard({
+  collection,
+  tracks: trackNames,
+}: {
+  collection: ItemCollection;
+  tracks: string[];
+}) {
   const { items, mode, warning } = collection;
   const pace = assessPace(items);
   const stats = counts(items);
-  const tracks = progressByTrack(items, TRACKS);
+  const tracks = progressByTrack(
+    items,
+    trackNames.map((track) => ({ id: track, label: track })),
+  );
   const focus = focusList(items, new Date(), 4);
   const later = deferrals(items, new Date(), [], 3);
   const weeks = weekLoads(items, new Date(), 6).filter((week) => week.heavy);
@@ -21,6 +31,7 @@ export function Dashboard({ collection }: { collection: ItemCollection }) {
     .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""))[0];
   const gaps = evidenceGaps(items).slice(0, 4);
   const queuedCore = items.filter((item) => item.priority === "Core" && !["Completed", "Attended", "Skipped"].includes(item.status)).length;
+  const slipping = attentionList(items);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
@@ -61,6 +72,13 @@ export function Dashboard({ collection }: { collection: ItemCollection }) {
           </ul>
         </section>
       ) : null}
+
+      <Link href="/roadmap" className="mt-4 block rounded-2xl border border-line bg-elev p-4 hover:border-accent">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Learning plan</p>
+        <p className="mt-2 text-sm leading-6">
+          {nearTermItems(items).length} items are in Now or the next 3 months. {slipping.length} need attention.
+        </p>
+      </Link>
 
       {featured ? (
         <Link href="/going" className="mt-4 block rounded-2xl border border-accent/30 bg-elev p-4 hover:border-accent">

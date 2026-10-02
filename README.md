@@ -62,6 +62,9 @@ Three different fields. Do not fold them into one.
 | Source | Where did it come from? | `Source` select |
 | Type | What kind of item is it? | `Type` select |
 | Track | What subject is it? | `Track` multi-select |
+| Horizon | When does it belong? | `Horizon` select |
+
+An empty Horizon is suggested from status, dates, and priority. A stored Horizon is left as written. `/roadmap` groups rows by horizon and lists what is slipping, with the blocker or the inferred reason.
 
 Provider stays free text for a more specific name. Source is the short flag.
 

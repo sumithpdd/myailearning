@@ -1,7 +1,7 @@
 import { Dashboard } from "@/features/dashboard/dashboard";
-import { listItems } from "@/lib/repository";
+import { listCatalog, listItems } from "@/lib/repository";
 
 export default async function HomePage() {
-  const collection = await listItems();
-  return <Dashboard collection={collection} />;
+  const [collection, catalog] = await Promise.all([listItems(), listCatalog()]);
+  return <Dashboard collection={collection} tracks={catalog.track} />;
 }

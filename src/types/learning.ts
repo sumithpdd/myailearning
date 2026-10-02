@@ -15,6 +15,25 @@ export const ITEM_STATUSES = [
 
 export const ITEM_PRIORITIES = ["Core", "High", "Medium", "Optional"] as const;
 
+export const ITEM_HORIZONS = ["Now", "3 Months", "6 Months", "9 Months", "12 Months", "12+ Months"] as const;
+
+export const ITEM_MOMENTUM = ["On Track", "At Risk", "Stalled", "Backlog"] as const;
+
+export const ITEM_TIME_SLOTS = ["Scheduled", "Needs scheduling", "Ad hoc"] as const;
+
+export const ITEM_BLOCKERS = [
+  "No time",
+  "Too many priorities",
+  "Unclear next step",
+  "Too big",
+  "Low energy",
+  "Lost interest",
+  "Waiting",
+  "Cost",
+  "No deadline",
+  "Other",
+] as const;
+
 export const SESSION_STATUSES = [
   "Undecided",
   "Attend live",
@@ -23,10 +42,15 @@ export const SESSION_STATUSES = [
   "Completed",
 ] as const;
 
-export type ItemType = (typeof ITEM_TYPES)[number];
-export type ItemOrigin = (typeof ITEM_ORIGINS)[number];
-export type ItemStatus = (typeof ITEM_STATUSES)[number];
-export type ItemPriority = (typeof ITEM_PRIORITIES)[number];
+/** Choice values come from the Notion schema. The const lists above are offline fallbacks. */
+export type ItemType = string;
+export type ItemOrigin = string;
+export type ItemStatus = string;
+export type ItemPriority = string;
+export type ItemHorizon = string;
+export type ItemMomentum = string;
+export type ItemTimeSlot = string;
+export type ItemBlocker = string;
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
 export type ActivityEntry = {
@@ -65,6 +89,16 @@ export type LearningItem = {
   priority: ItemPriority;
   tracks: string[];
   origin?: ItemOrigin;
+  horizon?: ItemHorizon;
+  momentum?: ItemMomentum;
+  timeSlot?: ItemTimeSlot;
+  blockers?: ItemBlocker[];
+  why?: string;
+  outcome?: string;
+  plannedHours?: number;
+  actualHours?: number;
+  lastLearning?: string;
+  reviewDate?: string;
   provider?: string;
   startDate?: string;
   endDate?: string;
@@ -99,6 +133,16 @@ export type LearningItemInput = {
   priority: ItemPriority;
   tracks: string[];
   origin?: ItemOrigin;
+  horizon?: ItemHorizon;
+  momentum?: ItemMomentum;
+  timeSlot?: ItemTimeSlot;
+  blockers?: ItemBlocker[];
+  why?: string;
+  outcome?: string;
+  plannedHours?: number;
+  actualHours?: number;
+  lastLearning?: string;
+  reviewDate?: string;
   provider?: string;
   startDate?: string;
   endDate?: string;

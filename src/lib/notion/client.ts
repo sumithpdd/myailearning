@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import https from "node:https";
 import path from "node:path";
 import tls from "node:tls";
-import { parseSchema, type NotionSchema } from "@/lib/notion/schema";
+import { parseSchema, type NotionSchema, type SchemaOption } from "@/lib/notion/schema";
 
 const NOTION_ORIGIN = "https://api.notion.com/v1";
 
@@ -200,6 +200,42 @@ export async function updateNotionPage(pageId: string, properties: Record<string
     version: context.version,
     body: { properties },
   });
+}
+
+export async function replacePropertyOptions(
+  propertyName: string,
+  kind: "select" | "multi_select" | "status",
+  options: SchemaOption[],
+): Promise<void> {
+  const context = await getNotionContext(true);
+  const body = {
+    properties: {
+      [propertyName]: {
+        [kind]: {
+          options: options.map((option) => {
+            const next: { id?: string; name: string; color?: string } = { name: option.name };
+            if (option.id) next.id = option.id;
+            if (option.color) next.color = option.color;
+            return next;
+          }),
+        },
+      },
+    },
+  };
+  if (context.version === "2025-09-03" && context.dataSourceId) {
+    await notionFetch(`/data_sources/${context.dataSourceId}`, {
+      method: "PATCH",
+      version: "2025-09-03",
+      body,
+    });
+  } else {
+    await notionFetch(`/databases/${context.databaseId}`, {
+      method: "PATCH",
+      version: "2022-06-28",
+      body,
+    });
+  }
+  clearNotionCache();
 }
 
 export async function archiveNotionPage(pageId: string): Promise<NotionPage> {

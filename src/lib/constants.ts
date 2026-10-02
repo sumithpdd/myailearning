@@ -1,6 +1,6 @@
 export const APP_NAME = "MyAILearning";
 
-export { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES } from "@/types/learning";
+export { ITEM_BLOCKERS, ITEM_HORIZONS, ITEM_MOMENTUM, ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TIME_SLOTS, ITEM_TYPES } from "@/types/learning";
 
 export const FINISH_LINE = "2026-12-15";
 export const PLAN_START = "2026-09-01";
@@ -66,18 +66,8 @@ export const TRACKS: TrackDefinition[] = [
 
 export const TRACK_IDS = TRACKS.map((track) => track.id);
 
-const ALIAS_TO_TRACK = new Map<string, string>();
-for (const track of TRACKS) {
-  ALIAS_TO_TRACK.set(track.id.toLowerCase(), track.id);
-  for (const alias of track.aliases) {
-    ALIAS_TO_TRACK.set(alias.toLowerCase(), track.id);
-  }
-}
-
 export function canonicalTrack(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return trimmed;
-  return ALIAS_TO_TRACK.get(trimmed.toLowerCase()) ?? trimmed;
+  return value.trim();
 }
 
 export function canonicalTracks(values: string[]): string[] {

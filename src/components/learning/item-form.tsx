@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACKS } from "@/lib/constants";
 import { saveItem } from "@/lib/client-api";
+import type { Catalog } from "@/lib/notion/schema";
 import type { LearningItem, LearningItemInput } from "@/types/learning";
 
 const EMPTY: LearningItemInput = {
@@ -18,9 +18,11 @@ const EMPTY: LearningItemInput = {
 export function ItemForm({
   item,
   readOnly,
+  catalog,
 }: {
   item?: LearningItem;
   readOnly?: boolean;
+  catalog: Catalog;
 }) {
   const router = useRouter();
   const initial: LearningItemInput = item
@@ -31,6 +33,16 @@ export function ItemForm({
         priority: item.priority,
         tracks: item.tracks,
         origin: item.origin,
+        horizon: item.horizon,
+        momentum: item.momentum,
+        timeSlot: item.timeSlot,
+        blockers: item.blockers || [],
+        why: item.why,
+        outcome: item.outcome,
+        plannedHours: item.plannedHours,
+        actualHours: item.actualHours,
+        lastLearning: item.lastLearning,
+        reviewDate: item.reviewDate,
         provider: item.provider,
         startDate: item.startDate,
         endDate: item.endDate,
@@ -82,29 +94,29 @@ export function ItemForm({
         <input className="field mt-1" required value={form.name} onChange={(event) => set("name", event.target.value)} />
       </label>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <FieldSelect label="Source" value={form.origin || ""} options={ITEM_ORIGINS} allowEmpty onChange={(value) => set("origin", (value || undefined) as LearningItemInput["origin"])} />
-        <FieldSelect label="Type" value={form.type} options={ITEM_TYPES} onChange={(value) => set("type", value as LearningItemInput["type"])} />
-        <FieldSelect label="Status" value={form.status} options={ITEM_STATUSES} onChange={(value) => set("status", value as LearningItemInput["status"])} />
-        <FieldSelect label="Priority" value={form.priority} options={ITEM_PRIORITIES} onChange={(value) => set("priority", value as LearningItemInput["priority"])} />
+        <FieldSelect label="Source" value={form.origin || ""} options={withValue(catalog.origin, form.origin)} allowEmpty onChange={(value) => set("origin", (value || undefined) as LearningItemInput["origin"])} />
+        <FieldSelect label="Type" value={form.type} options={withValue(catalog.type, form.type)} onChange={(value) => set("type", value as LearningItemInput["type"])} />
+        <FieldSelect label="Status" value={form.status} options={withValue(catalog.status, form.status)} onChange={(value) => set("status", value as LearningItemInput["status"])} />
+        <FieldSelect label="Priority" value={form.priority} options={withValue(catalog.priority, form.priority)} onChange={(value) => set("priority", value as LearningItemInput["priority"])} />
       </div>
       <fieldset>
         <legend className="text-sm">Tracks</legend>
         <div className="mt-2 flex flex-wrap gap-2">
-          {TRACKS.map((track) => {
-            const checked = form.tracks.includes(track.id);
+          {withValues(catalog.track, form.tracks).map((track) => {
+            const checked = form.tracks.includes(track);
             return (
-              <label key={track.id} className="flex items-center gap-2 rounded-full border border-line px-3 py-1 text-sm">
+              <label key={track} className="flex items-center gap-2 rounded-full border border-line px-3 py-1 text-sm">
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() =>
                     set(
                       "tracks",
-                      checked ? form.tracks.filter((entry) => entry !== track.id) : [...form.tracks, track.id],
+                      checked ? form.tracks.filter((entry) => entry !== track) : [...form.tracks, track],
                     )
                   }
                 />
-                {track.label}
+                {track}
               </label>
             );
           })}
@@ -124,6 +136,40 @@ export function ItemForm({
         <Text label="Cost" type="number" value={form.cost === undefined ? "" : String(form.cost)} onChange={(value) => set("cost", value === "" ? undefined : Number(value))} />
         <Text label="Currency" value={form.currency || ""} onChange={(value) => set("currency", value)} />
       </div>
+      <fieldset>
+        <legend className="text-sm">Plan</legend>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <FieldSelect label="Horizon" value={form.horizon || ""} options={withValue(catalog.horizon, form.horizon)} allowEmpty onChange={(value) => set("horizon", (value || undefined) as LearningItemInput["horizon"])} />
+          <FieldSelect label="Momentum" value={form.momentum || ""} options={withValue(catalog.momentum, form.momentum)} allowEmpty onChange={(value) => set("momentum", (value || undefined) as LearningItemInput["momentum"])} />
+          <FieldSelect label="Time slot" value={form.timeSlot || ""} options={withValue(catalog.timeSlot, form.timeSlot)} allowEmpty onChange={(value) => set("timeSlot", (value || undefined) as LearningItemInput["timeSlot"])} />
+          <Text label="Planned hours" type="number" value={form.plannedHours === undefined ? "" : String(form.plannedHours)} onChange={(value) => set("plannedHours", value === "" ? undefined : Number(value))} />
+          <Text label="Actual hours" type="number" value={form.actualHours === undefined ? "" : String(form.actualHours)} onChange={(value) => set("actualHours", value === "" ? undefined : Number(value))} />
+          <Text label="Last learning" type="date" value={form.lastLearning || ""} onChange={(value) => set("lastLearning", value)} />
+          <Text label="Review date" type="date" value={form.reviewDate || ""} onChange={(value) => set("reviewDate", value)} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {withValues(catalog.blocker, form.blockers || []).map((blocker) => {
+            const selected = (form.blockers || []).includes(blocker);
+            return (
+              <label key={blocker} className="flex items-center gap-2 rounded-full border border-line px-3 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() =>
+                    set(
+                      "blockers",
+                      selected ? (form.blockers || []).filter((entry) => entry !== blocker) : [...(form.blockers || []), blocker],
+                    )
+                  }
+                />
+                {blocker}
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+      <Area label="Why this matters" value={form.why || ""} onChange={(value) => set("why", value)} />
+      <Area label="Outcome" value={form.outcome || ""} onChange={(value) => set("outcome", value)} />
       <Area label="Offer" value={form.offer || ""} onChange={(value) => set("offer", value)} />
       <Area label="Notes" value={form.notes || ""} onChange={(value) => set("notes", value)} />
       <Area label="Next action" value={form.nextAction || ""} onChange={(value) => set("nextAction", value)} />
@@ -161,6 +207,16 @@ function Area({ label, value, onChange }: { label: string; value: string; onChan
       <textarea className="field mt-1" value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
+}
+
+function withValue(options: readonly string[], current?: string): string[] {
+  if (!current || options.includes(current)) return [...options];
+  return [current, ...options];
+}
+
+function withValues(options: readonly string[], current: readonly string[]): string[] {
+  const extra = current.filter((value) => value && !options.includes(value));
+  return [...options, ...extra];
 }
 
 function FieldSelect({

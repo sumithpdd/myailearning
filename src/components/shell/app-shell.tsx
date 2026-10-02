@@ -11,6 +11,7 @@ import type { NotionConnection } from "@/types/learning";
 const NAV = [
   { href: "/", label: "Dashboard" },
   { href: "/focus", label: "Focus" },
+  { href: "/roadmap", label: "Roadmap" },
   { href: "/learning", label: "Learning" },
   { href: "/events", label: "Events" },
   { href: "/timeline", label: "Timeline" },

@@ -1,4 +1,3 @@
-import { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACK_IDS } from "@/lib/constants";
 import type { LearningItemInput } from "@/types/learning";
 
 export function validateInput(body: unknown): { ok: true; value: LearningItemInput } | { ok: false; error: string } {
@@ -6,17 +5,27 @@ export function validateInput(body: unknown): { ok: true; value: LearningItemInp
   const record = body as Record<string, unknown>;
   const name = stringValue(record.name);
   if (!name) return { ok: false, error: "Name is required." };
-  const type = ITEM_TYPES.find((item) => item === record.type);
-  const status = ITEM_STATUSES.find((item) => item === record.status);
-  const priority = ITEM_PRIORITIES.find((item) => item === record.priority);
-  if (!type) return { ok: false, error: "Type is not recognised." };
-  if (!status) return { ok: false, error: "Status is not recognised." };
-  if (!priority) return { ok: false, error: "Priority is not recognised." };
-  const origin = originValue(record.origin);
-  if (!origin.ok) return { ok: false, error: "Source is not recognised." };
-  const tracks = Array.isArray(record.tracks) ? record.tracks.filter((track): track is string => typeof track === "string") : [];
-  const unknownTrack = tracks.find((track) => !TRACK_IDS.includes(track) && track.trim().length > 40);
-  if (unknownTrack) return { ok: false, error: "A track name is too long." };
+  const type = choice(record.type, true);
+  const status = choice(record.status, true);
+  const priority = choice(record.priority, true);
+  if (!type.ok || !type.value) return { ok: false, error: "Type is required." };
+  if (!status.ok || !status.value) return { ok: false, error: "Status is required." };
+  if (!priority.ok || !priority.value) return { ok: false, error: "Priority is required." };
+  const origin = choice(record.origin, false);
+  const horizon = choice(record.horizon, false);
+  const momentum = choice(record.momentum, false);
+  const timeSlot = choice(record.timeSlot, false);
+  const blockers = choices(record.blockers);
+  const tracks = choices(record.tracks);
+  const plannedHours = hoursValue(record.plannedHours);
+  const actualHours = hoursValue(record.actualHours);
+  if (!origin.ok) return { ok: false, error: "Source is not valid." };
+  if (!horizon.ok) return { ok: false, error: "Horizon is not valid." };
+  if (!momentum.ok) return { ok: false, error: "Momentum is not valid." };
+  if (!timeSlot.ok) return { ok: false, error: "Time slot is not valid." };
+  if (!blockers.ok) return { ok: false, error: "A blocker is not valid." };
+  if (!tracks.ok) return { ok: false, error: "A track name is not valid." };
+  if (!plannedHours.ok || !actualHours.ok) return { ok: false, error: "Hours must be zero or more." };
   const progress = record.progress === undefined || record.progress === null || record.progress === ""
     ? undefined
     : Number(record.progress);
@@ -27,11 +36,21 @@ export function validateInput(body: unknown): { ok: true; value: LearningItemInp
     ok: true,
     value: {
       name,
-      type,
-      status,
-      priority,
-      tracks,
+      type: type.value,
+      status: status.value,
+      priority: priority.value,
+      tracks: tracks.value,
       origin: origin.value,
+      horizon: horizon.value,
+      momentum: momentum.value,
+      timeSlot: timeSlot.value,
+      blockers: blockers.value,
+      why: stringValue(record.why),
+      outcome: stringValue(record.outcome),
+      plannedHours: plannedHours.value,
+      actualHours: actualHours.value,
+      lastLearning: dateValue(record.lastLearning),
+      reviewDate: dateValue(record.reviewDate),
       provider: stringValue(record.provider),
       startDate: dateValue(record.startDate),
       endDate: dateValue(record.endDate),
@@ -59,11 +78,31 @@ export function mergeInput(current: LearningItemInput, patch: Record<string, unk
   return { ...current, ...patch };
 }
 
-function originValue(value: unknown): { ok: true; value?: LearningItemInput["origin"] } | { ok: false } {
-  if (value === undefined || value === null || value === "") return { ok: true };
+function choice(value: unknown, required: boolean): { ok: true; value?: string } | { ok: false } {
+  if (value === undefined || value === null || value === "") return required ? { ok: false } : { ok: true };
   if (typeof value !== "string") return { ok: false };
-  const found = ITEM_ORIGINS.find((origin) => origin === value);
-  return found ? { ok: true, value: found } : { ok: false };
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 100) return { ok: false };
+  return { ok: true, value: trimmed };
+}
+
+function choices(value: unknown): { ok: true; value: string[] } | { ok: false } {
+  if (value === undefined || value === null) return { ok: true, value: [] };
+  if (!Array.isArray(value)) return { ok: false };
+  const next: string[] = [];
+  for (const entry of value) {
+    const parsed = choice(entry, true);
+    if (!parsed.ok || !parsed.value) return { ok: false };
+    next.push(parsed.value);
+  }
+  return { ok: true, value: next };
+}
+
+function hoursValue(value: unknown): { ok: true; value?: number } | { ok: false } {
+  if (value === undefined || value === null || value === "") return { ok: true };
+  const number = Number(value);
+  if (Number.isNaN(number) || number < 0) return { ok: false };
+  return { ok: true, value: number };
 }
 
 function stringValue(value: unknown): string | undefined {

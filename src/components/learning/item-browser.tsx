@@ -3,8 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { LearningCard, LearningTable } from "@/components/learning/cards";
 import { EmptyState, ModeBanner } from "@/components/ui";
-import { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACKS } from "@/lib/constants";
 import { SHELVES, filterItems, matchesShelf, parseFilters, providersOf, sortItems, type SortKey } from "@/lib/filters";
+import type { Catalog } from "@/lib/notion/schema";
 import type { LearningItem } from "@/types/learning";
 
 export function ItemBrowser({
@@ -13,6 +13,7 @@ export function ItemBrowser({
   warning,
   readOnly,
   basePath,
+  catalog,
   preset,
   defaultSort = "priority",
   titleNote,
@@ -22,6 +23,7 @@ export function ItemBrowser({
   warning?: string;
   readOnly: boolean;
   basePath: string;
+  catalog: Catalog;
   preset?: { type?: string[] };
   defaultSort?: SortKey;
   titleNote?: string;
@@ -79,11 +81,11 @@ export function ItemBrowser({
           />
         </label>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Select label="Status" value={filters.status?.[0] || ""} onChange={(value) => update({ status: value || null })} options={ITEM_STATUSES} />
-          <Select label="Priority" value={filters.priority?.[0] || ""} onChange={(value) => update({ priority: value || null })} options={ITEM_PRIORITIES} />
-          <Select label="Source" value={filters.origin || ""} onChange={(value) => update({ source: value || null })} options={ITEM_ORIGINS} />
-          <Select label="Type" value={filters.type?.[0] || ""} onChange={(value) => update({ type: value || null })} options={ITEM_TYPES} />
-          <Select label="Track" value={filters.track?.[0] || ""} onChange={(value) => update({ track: value || null })} options={TRACKS.map((track) => track.id)} />
+          <Select label="Status" value={filters.status?.[0] || ""} onChange={(value) => update({ status: value || null })} options={catalog.status} />
+          <Select label="Priority" value={filters.priority?.[0] || ""} onChange={(value) => update({ priority: value || null })} options={catalog.priority} />
+          <Select label="Source" value={filters.origin || ""} onChange={(value) => update({ source: value || null })} options={catalog.origin} />
+          <Select label="Type" value={filters.type?.[0] || ""} onChange={(value) => update({ type: value || null })} options={catalog.type} />
+          <Select label="Track" value={filters.track?.[0] || ""} onChange={(value) => update({ track: value || null })} options={catalog.track} />
           <Select label="Provider" value={filters.provider || ""} onChange={(value) => update({ provider: value || null })} options={providers} />
           <Select
             label="Sort"

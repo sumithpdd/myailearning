@@ -1,8 +1,8 @@
 import { canonicalTracks, notionTrackName } from "@/lib/constants";
 import { embedMeta, readMeta, stripMeta } from "@/lib/meta";
-import { findProperty, optionOrFallback, type NotionSchema } from "@/lib/notion/schema";
+import { findProperty, optionNames, optionOrFallback, type NotionSchema } from "@/lib/notion/schema";
 import type { NotionPage } from "@/lib/notion/client";
-import type { ItemMeta, ItemOrigin, ItemPriority, ItemStatus, ItemType, LearningItem, LearningItemInput } from "@/types/learning";
+import type { ItemMeta, ItemType, LearningItem, LearningItemInput } from "@/types/learning";
 
 type RichText = { plain_text?: string };
 type SelectValue = { name?: string } | null;
@@ -10,30 +10,27 @@ type DateValue = { start?: string | null; end?: string | null } | null;
 
 type PropertyBag = Record<string, unknown>;
 
-const TYPES: ItemType[] = ["Event", "Workshop", "Course", "Book", "liveProject", "Video", "Article", "Podcast"];
-const ORIGINS: ItemOrigin[] = ["AI DevCamp", "Packt", "Manning", "Other"];
 const LEGACY_TYPES: Record<string, ItemType> = {
   Conference: "Event",
   Webinar: "Event",
   Learning: "Course",
   Other: "Event",
 };
-const STATUSES: ItemStatus[] = ["To Do", "Considering", "Going", "Confirmed", "In Progress", "Attended", "Completed", "Skipped"];
-const PRIORITIES: ItemPriority[] = ["Core", "High", "Medium", "Optional"];
-
 export function mapNotionPage(page: NotionPage, schema?: NotionSchema): LearningItem {
   const properties = page.properties || {};
   const resolved = schema ?? schemaFromPage(properties);
   const notesRaw = readRich(properties, findProperty(resolved, "notes")?.name || "Notes");
   const meta = readMeta(notesRaw);
   const notionType = canonicalType(readSelect(properties, findProperty(resolved, "type")?.name || "Type"));
-  const notionStatus = oneOf(readSelect(properties, findProperty(resolved, "status")?.name || "Status"), STATUSES, "To Do");
-  const type = meta.typeDetail && TYPES.includes(meta.typeDetail) ? meta.typeDetail : notionType;
-  const status = meta.statusDetail && STATUSES.includes(meta.statusDetail) ? meta.statusDetail : notionStatus;
+  const notionStatus = readSelect(properties, findProperty(resolved, "status")?.name || "Status") || "To Do";
+  const type = meta.typeDetail || notionType;
+  const status = meta.statusDetail || notionStatus;
   const date = readDate(properties, findProperty(resolved, "date")?.name || "Date");
   const deadline = readDate(properties, findProperty(resolved, "deadline")?.name || "Deadline");
   const completed = readDate(properties, findProperty(resolved, "completedDate")?.name || "Completed date");
   const updated = readDate(properties, findProperty(resolved, "updatedDate")?.name || "Updated date");
+  const lastLearning = readDate(properties, findProperty(resolved, "lastLearning")?.name || "Last Learning");
+  const reviewDate = readDate(properties, findProperty(resolved, "reviewDate")?.name || "Review Date");
   const progressProperty = findProperty(resolved, "progress");
   const propertyProgress = progressProperty ? readNumber(properties, progressProperty.name) : undefined;
   const costProperty = findProperty(resolved, "cost");
@@ -44,9 +41,19 @@ export function mapNotionPage(page: NotionPage, schema?: NotionSchema): Learning
     name: readTitle(properties, resolved.titleProperty) || "Untitled",
     type,
     status,
-    priority: oneOf(readSelect(properties, findProperty(resolved, "priority")?.name || "Priority"), PRIORITIES, "Medium"),
+    priority: readSelect(properties, findProperty(resolved, "priority")?.name || "Priority") || "Medium",
     tracks: canonicalTracks(readMulti(properties, findProperty(resolved, "track")?.name || "Track")),
-    origin: ORIGINS.find((item) => item.toLowerCase() === readSelect(properties, findProperty(resolved, "origin")?.name || "Source").toLowerCase()),
+    origin: readSelect(properties, findProperty(resolved, "origin")?.name || "Source") || undefined,
+    horizon: readSelect(properties, findProperty(resolved, "horizon")?.name || "Horizon") || undefined,
+    momentum: readSelect(properties, findProperty(resolved, "momentum")?.name || "Momentum") || undefined,
+    timeSlot: readSelect(properties, findProperty(resolved, "timeSlot")?.name || "Time Slot") || undefined,
+    blockers: readMulti(properties, findProperty(resolved, "blocker")?.name || "Blocker"),
+    why: readRich(properties, findProperty(resolved, "why")?.name || "Why") || undefined,
+    outcome: readRich(properties, findProperty(resolved, "outcome")?.name || "Outcome") || undefined,
+    plannedHours: readNumber(properties, findProperty(resolved, "plannedHours")?.name || "Planned Hours"),
+    actualHours: readNumber(properties, findProperty(resolved, "actualHours")?.name || "Actual Hours"),
+    lastLearning: lastLearning?.start ? lastLearning.start.slice(0, 10) : undefined,
+    reviewDate: reviewDate?.start ? reviewDate.start.slice(0, 10) : undefined,
     provider: readRich(properties, findProperty(resolved, "provider")?.name || "Provider") || undefined,
     startDate: date?.start ? date.start.slice(0, 10) : undefined,
     endDate: date?.end ? date.end.slice(0, 10) : undefined,
@@ -110,12 +117,20 @@ export function toNotionProperties(
   const trackProperty = findProperty(schema, "track");
   if (trackProperty) {
     const names = input.tracks
-      .map((track) => notionTrackName(track, trackProperty.options))
+      .map((track) => notionTrackName(track, optionNames(trackProperty.options)))
       .filter((track): track is string => Boolean(track));
     properties[trackProperty.name] = { multi_select: names.map((name) => ({ name })) };
   }
 
-  writeSelect(properties, schema, "origin", input.origin, ORIGINS);
+  writeSelect(properties, schema, "origin", input.origin);
+  writeSelect(properties, schema, "horizon", input.horizon);
+  writeSelect(properties, schema, "momentum", input.momentum);
+  writeSelect(properties, schema, "timeSlot", input.timeSlot);
+  writeMulti(properties, schema, "blocker", input.blockers || []);
+  writeRich(properties, schema, "why", input.why);
+  writeRich(properties, schema, "outcome", input.outcome);
+  writeNumber(properties, schema, "plannedHours", input.plannedHours);
+  writeNumber(properties, schema, "actualHours", input.actualHours);
   writeRich(properties, schema, "provider", input.provider);
   writeRich(properties, schema, "location", input.location);
   writeRich(properties, schema, "notes", fitNotes(input.notes, meta));
@@ -127,6 +142,8 @@ export function toNotionProperties(
   writeDate(properties, schema, "deadline", input.deadline, undefined);
   writeDate(properties, schema, "completedDate", input.completedDate, undefined);
   writeDate(properties, schema, "updatedDate", input.updatedDate, undefined);
+  writeDate(properties, schema, "lastLearning", input.lastLearning, undefined);
+  writeDate(properties, schema, "reviewDate", input.reviewDate, undefined);
 
   const progressProperty = findProperty(schema, "progress");
   if (progressProperty?.type === "number") {
@@ -155,6 +172,8 @@ export function activitySummary(previous: LearningItem | undefined, input: Learn
   if (JSON.stringify(previous.evidence || []) !== JSON.stringify(input.evidence || [])) changes.push("evidence");
   if (JSON.stringify(previous.tracks) !== JSON.stringify(input.tracks)) changes.push("tracks");
   if ((previous.origin || "") !== (input.origin || "")) changes.push(`source → ${input.origin || "cleared"}`);
+  if ((previous.horizon || "") !== (input.horizon || "")) changes.push(`horizon → ${input.horizon || "cleared"}`);
+  if ((previous.momentum || "") !== (input.momentum || "")) changes.push(`momentum → ${input.momentum || "cleared"}`);
   if (changes.length === 0) return "Updated";
   return `Updated ${changes.join(", ")}`;
 }
@@ -185,7 +204,8 @@ function buildMeta(input: LearningItemInput, schema: NotionSchema, previous?: Le
 }
 
 function canonicalType(value: string): ItemType {
-  return LEGACY_TYPES[value] || oneOf(value, TYPES, "Course");
+  if (!value) return "Course";
+  return LEGACY_TYPES[value] || value;
 }
 
 function typeFallback(type: ItemType): string[] {
@@ -195,9 +215,8 @@ function typeFallback(type: ItemType): string[] {
 function writeSelect(
   properties: Record<string, unknown>,
   schema: NotionSchema,
-  field: "origin",
+  field: "origin" | "horizon" | "momentum" | "timeSlot",
   value: string | undefined,
-  allowed: readonly string[],
 ) {
   const property = findProperty(schema, field);
   if (!property || (property.type !== "select" && property.type !== "status" && property.type !== "unknown")) return;
@@ -205,11 +224,11 @@ function writeSelect(
     properties[property.name] = { select: null };
     return;
   }
-  const written = optionOrFallback(value, property.options, allowed);
+  const written = optionOrFallback(value, property.options, [value]);
   if (written) properties[property.name] = { select: { name: written } };
 }
 
-function statusFallback(status: ItemStatus): string[] {
+function statusFallback(status: string): string[] {
   if (status === "Confirmed") return ["Going", "To Do"];
   return ["To Do"];
 }
@@ -217,7 +236,7 @@ function statusFallback(status: ItemStatus): string[] {
 function writeRich(
   properties: Record<string, unknown>,
   schema: NotionSchema,
-  field: "provider" | "location" | "notes" | "nextAction" | "offer",
+  field: "provider" | "location" | "notes" | "nextAction" | "offer" | "why" | "outcome",
   value: string | undefined,
 ) {
   const property = findProperty(schema, field);
@@ -239,7 +258,7 @@ function writeUrl(
 function writeDate(
   properties: Record<string, unknown>,
   schema: NotionSchema,
-  field: "date" | "deadline" | "completedDate" | "updatedDate",
+  field: "date" | "deadline" | "completedDate" | "updatedDate" | "lastLearning" | "reviewDate",
   start: string | undefined,
   end: string | undefined,
 ) {
@@ -330,6 +349,27 @@ function readNumber(properties: PropertyBag, name: string): number | undefined {
   return typeof property?.number === "number" ? property.number : undefined;
 }
 
-function oneOf<T extends string>(value: string, allowed: readonly T[], fallback: T): T {
-  return (allowed.find((item) => item.toLowerCase() === value.toLowerCase()) as T) || fallback;
+function writeMulti(
+  properties: Record<string, unknown>,
+  schema: NotionSchema,
+  field: "blocker",
+  values: string[],
+) {
+  const property = findProperty(schema, field);
+  if (!property) return;
+  const names = values
+    .map((value) => optionOrFallback(value, property.options, [value]))
+    .filter((value): value is string => Boolean(value));
+  properties[property.name] = { multi_select: names.map((name) => ({ name })) };
+}
+
+function writeNumber(
+  properties: Record<string, unknown>,
+  schema: NotionSchema,
+  field: "plannedHours" | "actualHours",
+  value: number | undefined,
+) {
+  const property = findProperty(schema, field);
+  if (!property || (property.type !== "number" && property.type !== "unknown")) return;
+  properties[property.name] = { number: typeof value === "number" ? value : null };
 }
