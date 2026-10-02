@@ -9,15 +9,16 @@ import { cn } from "@/lib/cn";
 import type { NotionConnection } from "@/types/learning";
 
 const NAV = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Today" },
+  { href: "/week", label: "This Week" },
+  { href: "/career", label: "Career" },
+  { href: "/learning", label: "Learning" },
   { href: "/focus", label: "Focus" },
   { href: "/roadmap", label: "Roadmap" },
-  { href: "/learning", label: "Learning" },
   { href: "/events", label: "Events" },
   { href: "/timeline", label: "Timeline" },
   { href: "/going", label: "Going" },
   { href: "/weekly-review", label: "Weekly Review" },
-  { href: "/path", label: "AI Expert Path" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -50,7 +51,7 @@ export function AppShell({ children, connection }: { children: React.ReactNode; 
         )}
       >
         <div className="px-5 pb-4 pt-6">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-sidebar-muted">Personal OS</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-sidebar-muted">AI career</p>
           <Link href="/" className="mt-1 block font-serif text-2xl" onClick={() => setOpen(false)}>
             {APP_NAME}
           </Link>

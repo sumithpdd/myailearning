@@ -48,6 +48,9 @@ export function mapNotionPage(page: NotionPage, schema?: NotionSchema): Learning
     momentum: readSelect(properties, findProperty(resolved, "momentum")?.name || "Momentum") || undefined,
     timeSlot: readSelect(properties, findProperty(resolved, "timeSlot")?.name || "Time Slot") || undefined,
     blockers: readMulti(properties, findProperty(resolved, "blocker")?.name || "Blocker"),
+    capability: readSelect(properties, findProperty(resolved, "capability")?.name || "Capability") || undefined,
+    skill: readSelect(properties, findProperty(resolved, "skill")?.name || "Skill") || undefined,
+    careerProgress: readSelect(properties, findProperty(resolved, "careerProgress")?.name || "Career Progress") || undefined,
     why: readRich(properties, findProperty(resolved, "why")?.name || "Why") || undefined,
     outcome: readRich(properties, findProperty(resolved, "outcome")?.name || "Outcome") || undefined,
     plannedHours: readNumber(properties, findProperty(resolved, "plannedHours")?.name || "Planned Hours"),
@@ -126,6 +129,9 @@ export function toNotionProperties(
   writeSelect(properties, schema, "horizon", input.horizon);
   writeSelect(properties, schema, "momentum", input.momentum);
   writeSelect(properties, schema, "timeSlot", input.timeSlot);
+  writeSelect(properties, schema, "capability", input.capability);
+  writeSelect(properties, schema, "skill", input.skill);
+  writeSelect(properties, schema, "careerProgress", input.careerProgress);
   writeMulti(properties, schema, "blocker", input.blockers || []);
   writeRich(properties, schema, "why", input.why);
   writeRich(properties, schema, "outcome", input.outcome);
@@ -215,7 +221,7 @@ function typeFallback(type: ItemType): string[] {
 function writeSelect(
   properties: Record<string, unknown>,
   schema: NotionSchema,
-  field: "origin" | "horizon" | "momentum" | "timeSlot",
+  field: "origin" | "horizon" | "momentum" | "timeSlot" | "capability" | "skill" | "careerProgress",
   value: string | undefined,
 ) {
   const property = findProperty(schema, field);

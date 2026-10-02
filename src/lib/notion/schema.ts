@@ -1,4 +1,5 @@
 import {
+  CAREER_PROGRESS,
   ITEM_BLOCKERS,
   ITEM_HORIZONS,
   ITEM_MOMENTUM,
@@ -121,6 +122,9 @@ const FIELD_ALIASES: Record<string, string[]> = {
   learningItem: ["learning item"],
   taskType: ["task type"],
   due: ["due", "due date"],
+  capability: ["capability"],
+  skill: ["skill"],
+  careerProgress: ["career progress", "careerprogress"],
   progress: ["progress"],
   cost: ["cost", "price"],
   evidence: ["evidence"],
@@ -158,6 +162,9 @@ export type Catalog = {
   timeSlot: string[];
   blocker: string[];
   track: string[];
+  capability: string[];
+  skill: string[];
+  careerProgress: string[];
 };
 
 export function catalogFromSchema(schema?: NotionSchema): Catalog {
@@ -175,6 +182,9 @@ export function catalogFromSchema(schema?: NotionSchema): Catalog {
     timeSlot: pick("timeSlot", ITEM_TIME_SLOTS),
     blocker: pick("blocker", ITEM_BLOCKERS),
     track: pick("track", TRACKS.map((track) => track.id)),
+    capability: pick("capability", []),
+    skill: pick("skill", []),
+    careerProgress: pick("careerProgress", CAREER_PROGRESS),
   };
 }
 

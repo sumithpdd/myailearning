@@ -86,6 +86,38 @@ export function mapTaskPage(page: NotionPage, schema?: NotionSchema): LearningTa
   };
 }
 
+export type CareerGoal = { name: string; statement?: string; status?: string };
+
+export async function listCareerGoals(): Promise<CareerGoal[]> {
+  if (!notionConfigured()) return [];
+  try {
+    const explicit = process.env.NOTION_GOAL_DATA_SOURCE_ID;
+    const opened = explicit
+      ? await openDataSource(explicit)
+      : await (async () => {
+          const hits = await searchDatabases("Career Goal");
+          const match = hits.find((hit) => hit.title.toLowerCase() === "career goal");
+          if (!match) return null;
+          const database = await openDatabase(match.id);
+          if (database.title && database.title.toLowerCase() !== "career goal") return null;
+          return database;
+        })();
+    if (!opened) return [];
+    const pages = await queryDatabasePages(opened);
+    return pages.filter(isLive).map((page) => {
+      const schema = opened.schema;
+      const properties = page.properties;
+      return {
+        name: readTitle(properties, findProperty(schema, "name")?.name || "Name") || "Career goal",
+        statement: readRich(properties, "Statement") || undefined,
+        status: readSelect(properties, findProperty(schema, "status")?.name || "Status") || undefined,
+      };
+    }).filter((goal) => !goal.status || goal.status.toLowerCase() === "active");
+  } catch {
+    return [];
+  }
+}
+
 export async function loadRelated(): Promise<RelatedSnapshot> {
   if (!notionConfigured()) return { agenda: [], tasks: [], choices: EMPTY_CHOICES };
   if (cached && Date.now() - cached.at < 60_000) return cached.snapshot;

@@ -1,7 +1,9 @@
 /** Machine-readable description of the Notion graph. No personal plan content. */
 export const LEARNING_MODEL = {
   summary:
-    "Learning Plan is the parent. Learning Agenda holds the sessions. Learning Tasks holds the work. Both children point at the parent through the Learning Item relation. Do not store the agenda or the task list inside Notes.",
+    "The app answers what to learn next and how it moves the career forward. Career Goal is the destination. Each Learning Plan row sets Capability, then Skill, then the work. Career Progress moves Beginner → Working → Applied → Expert. Applied means the skill was used in real work. Evidence is an outcome, a recorded proof, or Applied/Expert progress. Learning Agenda holds sessions. Learning Tasks holds the work. Both point at the learning item through Learning Item. Leave Capability empty when a row is not on the path.",
+  hierarchy: ["Career Goal", "Capability", "Skill", "Learning item", "Weekly plan", "Evidence", "Career Progress"],
+  careerProgress: ["Beginner", "Working", "Applied", "Expert"],
   parent: {
     database: "Learning Plan",
     role: "One course, event, book, or other learning item.",
@@ -45,5 +47,7 @@ export const LEARNING_MODEL = {
     updateAgenda: "PATCH /api/agenda/{id} with attendance, plan, notes, takeaways, or followUp",
     updateTask: "PATCH /api/tasks/{id} with status or notes",
     shape: "GET /api/model",
+    career: "GET /career is the path, skills gap, and evidence",
+    week: "GET /week is the weekly plan",
   },
 } as const;

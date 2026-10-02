@@ -33,6 +33,9 @@ export function ItemForm({
         priority: item.priority,
         tracks: item.tracks,
         origin: item.origin,
+        capability: item.capability,
+        skill: item.skill,
+        careerProgress: item.careerProgress,
         horizon: item.horizon,
         momentum: item.momentum,
         timeSlot: item.timeSlot,
@@ -139,6 +142,9 @@ export function ItemForm({
       <fieldset>
         <legend className="text-sm">Plan</legend>
         <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <FieldSelect label="Capability" value={form.capability || ""} options={withValue(catalog.capability, form.capability)} allowEmpty onChange={(value) => set("capability", value || undefined)} />
+          <FieldSelect label="Skill" value={form.skill || ""} options={withValue(catalog.skill, form.skill)} allowEmpty onChange={(value) => set("skill", value || undefined)} />
+          <FieldSelect label="Career progress" value={form.careerProgress || ""} options={withValue(catalog.careerProgress, form.careerProgress)} allowEmpty onChange={(value) => set("careerProgress", value || undefined)} />
           <FieldSelect label="Horizon" value={form.horizon || ""} options={withValue(catalog.horizon, form.horizon)} allowEmpty onChange={(value) => set("horizon", (value || undefined) as LearningItemInput["horizon"])} />
           <FieldSelect label="Momentum" value={form.momentum || ""} options={withValue(catalog.momentum, form.momentum)} allowEmpty onChange={(value) => set("momentum", (value || undefined) as LearningItemInput["momentum"])} />
           <FieldSelect label="Time slot" value={form.timeSlot || ""} options={withValue(catalog.timeSlot, form.timeSlot)} allowEmpty onChange={(value) => set("timeSlot", (value || undefined) as LearningItemInput["timeSlot"])} />

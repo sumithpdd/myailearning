@@ -58,6 +58,9 @@ export function LearningDetail({
         />
         <Section title="Plan">
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <Fact label="Capability" value={item.capability || "—"} />
+            <Fact label="Skill" value={item.skill || "—"} />
+            <Fact label="Career progress" value={item.careerProgress || "—"} />
             <Fact label="Horizon" value={item.horizon || (horizonIsSuggested(item) ? `Suggested: ${suggestHorizon(item)}` : "—")} />
             <Fact label="Momentum" value={item.momentum || "—"} />
             <Fact label="Time slot" value={item.timeSlot || "—"} />

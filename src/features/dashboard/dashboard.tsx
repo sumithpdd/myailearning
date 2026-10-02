@@ -3,18 +3,22 @@ import { LearningCard } from "@/components/learning/cards";
 import { Badge, ModeBanner, ProgressBar } from "@/components/ui";
 import { FINISH_LINE, isEventType } from "@/lib/constants";
 import { deferrals, evidenceGaps, focusList } from "@/lib/focus";
+import { careerPath, daysLabel, nextLearningAction, weekItems } from "@/lib/career";
 import { formatDateRange, formatDisplayDate, formatSessionWhen, todayISO } from "@/lib/dates";
 import { attentionList, nearTermItems } from "@/lib/plan";
 import { assessPace, counts, progressByTrack, weekLoads } from "@/lib/progress";
+import type { Catalog } from "@/lib/notion/schema";
 import type { AgendaEntry, ItemCollection, LearningTask } from "@/types/learning";
 
 export function Dashboard({
   collection,
   tracks: trackNames,
   monitor,
+  catalog,
 }: {
   collection: ItemCollection;
   tracks: string[];
+  catalog: Catalog;
   monitor?: {
     agenda: (AgendaEntry & { parentId?: string; parentName?: string })[];
     tasks: (LearningTask & { parentId?: string; parentName?: string })[];
@@ -38,21 +42,80 @@ export function Dashboard({
   const gaps = evidenceGaps(items).slice(0, 4);
   const queuedCore = items.filter((item) => item.priority === "Core" && !["Completed", "Attended", "Skipped"].includes(item.status)).length;
   const slipping = attentionList(items);
+  const next = nextLearningAction(items);
+  const week = weekItems(items);
+  const path = careerPath(items, catalog.capability);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       <ModeBanner mode={mode} warning={warning || monitor?.warning} />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brass">Personal learning system</p>
-          <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">My AI Learning</h1>
-          <p className="mt-2 text-muted">Finish line: {formatDisplayDate(FINISH_LINE)}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brass">AI career</p>
+          <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">What should I learn next?</h1>
+          <p className="mt-2 max-w-xl text-muted">How it moves the career forward matters more than collecting another course. Finish line: {formatDisplayDate(FINISH_LINE)}</p>
         </div>
         <div className="rounded-2xl border border-line bg-elev px-5 py-4">
           <p className="font-serif text-4xl leading-none">{pace.daysRemaining}</p>
           <p className="mt-1 text-sm text-muted">days remaining</p>
         </div>
       </header>
+
+      <section className="mt-6 rounded-2xl border border-accent/40 bg-elev p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Next best learning action</p>
+        {next ? (
+          <>
+            <Link href={`/learning/${next.item.id}`} className="mt-2 block font-serif text-3xl hover:text-accent">
+              {next.item.name}
+            </Link>
+            <p className="mt-2 text-sm leading-6">{next.reasons.join(" · ")}</p>
+            <p className="mt-2 text-sm text-muted">
+              {[next.item.capability, next.item.skill, next.item.careerProgress || "Progress not set", next.item.plannedHours ? `${next.item.plannedHours}h planned` : ""].filter(Boolean).join(" · ")}
+            </p>
+          </>
+        ) : (
+          <p className="mt-2 text-sm">Nothing open is ready. Add a learning item and set its capability.</p>
+        )}
+      </section>
+
+      <section className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-line bg-elev p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-serif text-2xl">This week</h2>
+            <Link href="/week" className="text-sm text-accent">
+              Open
+            </Link>
+          </div>
+          {week.length === 0 ? <p className="mt-2 text-sm text-muted">No dated or in-progress learning this week.</p> : null}
+          <ul className="mt-3 space-y-2 text-sm">
+            {week.map((item) => (
+              <li key={item.id}>
+                <Link className="font-medium hover:text-accent" href={`/learning/${item.id}`}>
+                  {item.name}
+                </Link>
+                <span className="text-muted"> · {daysLabel(item)}{item.capability ? ` · ${item.capability}` : ""}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="rounded-2xl border border-line bg-elev p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-serif text-2xl">Career path</h2>
+            <Link href="/career" className="text-sm text-accent">
+              Path, gaps, evidence
+            </Link>
+          </div>
+          {path.length === 0 ? <p className="mt-2 text-sm text-muted">Capabilities appear here once they exist on the learning plan.</p> : null}
+          <ul className="mt-3 space-y-2 text-sm">
+            {path.map((entry) => (
+              <li key={entry.name} className="flex justify-between gap-3">
+                <span>{entry.name}</span>
+                <span className="text-muted">{entry.progress} · {entry.open} open</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <p className="mt-4 max-w-3xl text-sm leading-6">{pace.summary}</p>
       <div className="mt-3 max-w-xl">

@@ -2,7 +2,7 @@
 
 A learning tracker UI over Notion. The plan lives in Notion. This repository holds the app, not the plan.
 
-Learning Plan is the parent. Learning Agenda holds the sessions for an item. Learning Tasks holds the work for an item. Both children point at the parent through a Learning Item relation. `GET /api/model` describes that shape for another tool.
+Learning Plan is the parent. A row moves a career forward when it has a Capability, a Skill, and Career Progress. Learning Agenda holds the sessions for an item. Learning Tasks holds the work for an item. Both children point at the parent through a Learning Item relation. `GET /api/model` describes that shape for another tool.
 
 ## Architecture
 

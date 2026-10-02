@@ -6,6 +6,7 @@ import { filterItems } from "../src/lib/filters";
 import { embedMeta, readMeta, stripMeta } from "../src/lib/meta";
 import { mapNotionPage } from "../src/lib/notion/mapper";
 import { mapAgendaPage, mapTaskPage } from "../src/lib/notion/related";
+import { nextLearningAction, skillGaps } from "../src/lib/career";
 import { attentionReasons, suggestHorizon } from "../src/lib/plan";
 import { assessPace, progressByTrack, weekLoads } from "../src/lib/progress";
 import { TRACKS } from "../src/lib/constants";
@@ -32,6 +33,9 @@ const page = {
     Priority: { select: { name: "High" } },
     Type: { select: { name: "Workshop" } },
     Track: { multi_select: [{ name: "SEO-AEO-GEO" }, { name: "Cloud" }] },
+    Capability: { select: { name: "Sample capability" } },
+    Skill: { select: { name: "Sample skill" } },
+    "Career Progress": { select: { name: "Working" } },
     Notes: { rich_text: [{ plain_text: notes }] },
     Date: { date: { start: "2026-03-04", end: "2026-03-06" } },
     Link: { url: "https://example.com" },
@@ -45,6 +49,14 @@ assert.equal(mapped.tracks[1], "Cloud");
 assert.equal(mapped.notes, "Read the guide");
 assert.equal(mapped.progress, 55);
 assert.equal(mapped.url, "https://example.com");
+assert.equal(mapped.capability, "Sample capability");
+assert.equal(mapped.skill, "Sample skill");
+assert.equal(mapped.careerProgress, "Working");
+const next = nextLearningAction([mapped, ...createSeedItems().filter((item) => item.priority === "Optional")]);
+assert.equal(next?.item.capability, "Sample capability");
+const gaps = skillGaps([mapped], ["Sample skill", "Missing skill"]);
+assert.equal(gaps.find((gap) => gap.skill === "Missing skill")?.reason, "No learning item is attached yet.");
+assert.equal(gaps.find((gap) => gap.skill === "Sample skill"), undefined);
 
 const session = mapAgendaPage({
   object: "page",

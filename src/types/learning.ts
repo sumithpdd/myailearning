@@ -34,6 +34,8 @@ export const ITEM_BLOCKERS = [
   "Other",
 ] as const;
 
+export const CAREER_PROGRESS = ["Beginner", "Working", "Applied", "Expert"] as const;
+
 export const SESSION_STATUSES = [
   "Undecided",
   "Attend live",
@@ -93,6 +95,9 @@ export type LearningItem = {
   momentum?: ItemMomentum;
   timeSlot?: ItemTimeSlot;
   blockers?: ItemBlocker[];
+  capability?: string;
+  skill?: string;
+  careerProgress?: string;
   why?: string;
   outcome?: string;
   plannedHours?: number;
@@ -179,6 +184,9 @@ export type LearningItemInput = {
   momentum?: ItemMomentum;
   timeSlot?: ItemTimeSlot;
   blockers?: ItemBlocker[];
+  capability?: string;
+  skill?: string;
+  careerProgress?: string;
   why?: string;
   outcome?: string;
   plannedHours?: number;
