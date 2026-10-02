@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f3efe7;
+  --elev: #fffdf9;
+  --ink: #1c1915;
+  --muted: #6f675e;
+  --line: #e3dcd2;
+  --accent: #0e5c56;
+  --accent-ink: #f3fffd;
+  --brass: #8d6a32;
+  --danger: #8d342c;
+  --warn: #8a5a12;
+  --ok: #1d6b43;
+  --sidebar: #171512;
+  --sidebar-ink: #f6f1e8;
+  --sidebar-muted: #b7aea3;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #12110f;
+  --elev: #1c1a17;
+  --ink: #f4efe6;
+  --muted: #b7aea3;
+  --line: #322e29;
+  --accent: #8fd9d1;
+  --accent-ink: #10211f;
+  --brass: #d4b483;
+  --danger: #f0a8a2;
+  --warn: #e6c07b;
+  --ok: #8dceb0;
+  --sidebar: #0d0c0b;
+  --sidebar-ink: #f4efe6;
+  --sidebar-muted: #a79d92;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--bg);
+  --color-elev: var(--elev);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-brass: var(--brass);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-ink: var(--sidebar-ink);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --font-sans: var(--font-source), "Segoe UI", sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, "Palatino Linotype", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-source), "Segoe UI", sans-serif;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--elev);
+  color: var(--ink);
+  border-radius: 0.7rem;
+  padding: 0.55rem 0.75rem;
+}
+
+textarea.field {
+  min-height: 7rem;
+  resize: vertical;
+}
