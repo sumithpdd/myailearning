@@ -79,11 +79,11 @@ export function Dashboard({ collection }: { collection: ItemCollection }) {
       ) : null}
 
       <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <Kpi href="/learning?status=In%20Progress,Going,Confirmed" label="Active learning" value={stats.active} hint="In progress, going, or confirmed" />
+        <Kpi href="/learning?shelf=active" label="Active learning" value={stats.active} hint="In progress, going, or confirmed" />
         <Kpi href="/learning?priority=Core" label="Core items remaining" value={stats.coreRemaining} hint={`${queuedCore} still on the core path`} />
         <Kpi href="/learning?priority=High" label="High-priority items" value={stats.high} hint="Not completed" />
         <Kpi href="/events?upcoming=1" label="Upcoming events" value={stats.upcoming} hint="Not skipped" />
-        <Kpi href="/learning?completed=1" label="Completed" value={stats.completed} hint="Marked completed" />
+        <Kpi href="/learning?status=Completed" label="Completed" value={stats.completed} hint="Marked completed" />
         <Kpi href="/learning?status=Attended" label="Attended" value={stats.attended} hint="Marked attended" />
         <Kpi href="/learning?expiring=1" label="Expiring soon" value={stats.expiring} hint="Deadline within 21 days" />
         <Kpi href="/learning?overdue=1" label="Overdue" value={stats.overdue} hint="Deadline has passed" />

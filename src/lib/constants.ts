@@ -1,6 +1,6 @@
 export const APP_NAME = "MyAILearning";
 
-export { ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES } from "@/types/learning";
+export { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES } from "@/types/learning";
 
 export const FINISH_LINE = "2026-12-15";
 export const PLAN_START = "2026-09-01";
@@ -111,7 +111,7 @@ export const PRIORITY_WEIGHT: Record<string, number> = {
   Optional: 0.5,
 };
 
-export const EVENT_TYPES = new Set(["Event", "Conference", "Workshop", "Webinar"]);
+export const EVENT_TYPES = new Set(["Event", "Workshop"]);
 
 export function isEventType(type: string): boolean {
   return EVENT_TYPES.has(type);

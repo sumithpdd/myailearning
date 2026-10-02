@@ -1,7 +1,7 @@
 import { isDoneStatus, isEventType, isTerminalStatus } from "@/lib/constants";
 import { daysUntil } from "@/lib/dates";
 import { effectiveProgress } from "@/lib/progress";
-import type { ItemPriority, ItemStatus, ItemType, LearningItem } from "@/types/learning";
+import { ITEM_ORIGINS, ITEM_TYPES, type ItemOrigin, type ItemPriority, type ItemStatus, type ItemType, type LearningItem } from "@/types/learning";
 
 export type ItemFilters = {
   q?: string;
@@ -9,6 +9,8 @@ export type ItemFilters = {
   priority?: string[];
   type?: string[];
   track?: string[];
+  origin?: string;
+  shelf?: Shelf;
   provider?: string;
   from?: string;
   to?: string;
@@ -23,6 +25,16 @@ export type ItemFilters = {
 };
 
 export type SortKey = "date" | "deadline" | "priority" | "progress" | "name" | "updated";
+
+export type Shelf = "active" | "books" | "videos" | "events" | "completed";
+
+export const SHELVES: { id: Shelf; label: string }[] = [
+  { id: "active", label: "Active" },
+  { id: "books", label: "Books" },
+  { id: "videos", label: "Videos" },
+  { id: "events", label: "Events" },
+  { id: "completed", label: "Completed" },
+];
 
 const PRIORITY_ORDER: Record<string, number> = { Core: 0, High: 1, Medium: 2, Optional: 3 };
 
@@ -42,6 +54,8 @@ export function parseFilters(params: Record<string, string | string[] | undefine
     priority: list("priority"),
     type: list("type"),
     track: list("track"),
+    origin: read("source") || undefined,
+    shelf: castShelf(read("shelf")),
     provider: read("provider") || undefined,
     from: read("from") || undefined,
     to: read("to") || undefined,
@@ -63,6 +77,8 @@ export function filtersToQuery(filters: ItemFilters, view?: string): string {
   if (filters.priority?.length) params.set("priority", filters.priority.join(","));
   if (filters.type?.length) params.set("type", filters.type.join(","));
   if (filters.track?.length) params.set("track", filters.track.join(","));
+  if (filters.origin) params.set("source", filters.origin);
+  if (filters.shelf) params.set("shelf", filters.shelf);
   if (filters.provider) params.set("provider", filters.provider);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
@@ -85,7 +101,7 @@ export function filterItems(items: LearningItem[], filters: ItemFilters, now = n
     if (item.archived) return false;
     if (!filters.includeSkipped && item.status === "Skipped" && !filters.status?.includes("Skipped")) return false;
     if (query) {
-      const haystack = [item.name, item.notes, item.provider, item.location, item.nextAction, item.tracks.join(" "), item.offer]
+      const haystack = [item.name, item.notes, item.provider, item.origin, item.location, item.nextAction, item.tracks.join(" "), item.offer]
         .filter(Boolean)
         .join("\n")
         .toLowerCase();
@@ -95,6 +111,8 @@ export function filterItems(items: LearningItem[], filters: ItemFilters, now = n
     if (filters.priority?.length && !filters.priority.includes(item.priority)) return false;
     if (filters.type?.length && !filters.type.includes(item.type)) return false;
     if (filters.track?.length && !item.tracks.some((track) => filters.track?.includes(track))) return false;
+    if (filters.origin && item.origin !== filters.origin) return false;
+    if (filters.shelf && !matchesShelf(item, filters.shelf)) return false;
     if (filters.provider && item.provider !== filters.provider) return false;
     const marker = item.startDate || item.deadline;
     if (filters.from && (!marker || marker.slice(0, 10) < filters.from)) return false;
@@ -186,8 +204,23 @@ export function castPriority(value: string): ItemPriority | undefined {
 }
 
 export function castType(value: string): ItemType | undefined {
-  const allowed: ItemType[] = ["Event", "Conference", "Workshop", "Course", "Book", "liveProject", "Webinar", "Learning", "Other"];
-  return allowed.find((type) => type === value);
+  return ITEM_TYPES.find((type) => type === value);
+}
+
+export function castOrigin(value: string): ItemOrigin | undefined {
+  return ITEM_ORIGINS.find((origin) => origin === value);
+}
+
+export function castShelf(value: string | undefined): Shelf | undefined {
+  return SHELVES.find((shelf) => shelf.id === value)?.id;
+}
+
+export function matchesShelf(item: LearningItem, shelf: Shelf): boolean {
+  if (shelf === "active") return item.status === "In Progress" || item.status === "Going" || item.status === "Confirmed";
+  if (shelf === "books") return item.type === "Book";
+  if (shelf === "videos") return item.type === "Video";
+  if (shelf === "events") return item.type === "Event" || item.type === "Workshop";
+  return item.status === "Completed" || item.status === "Attended";
 }
 
 export function eventItems(items: LearningItem[]): LearningItem[] {

@@ -1,4 +1,4 @@
-import { ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACK_IDS } from "@/lib/constants";
+import { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACK_IDS } from "@/lib/constants";
 import type { LearningItemInput } from "@/types/learning";
 
 export function validateInput(body: unknown): { ok: true; value: LearningItemInput } | { ok: false; error: string } {
@@ -12,6 +12,8 @@ export function validateInput(body: unknown): { ok: true; value: LearningItemInp
   if (!type) return { ok: false, error: "Type is not recognised." };
   if (!status) return { ok: false, error: "Status is not recognised." };
   if (!priority) return { ok: false, error: "Priority is not recognised." };
+  const origin = originValue(record.origin);
+  if (!origin.ok) return { ok: false, error: "Source is not recognised." };
   const tracks = Array.isArray(record.tracks) ? record.tracks.filter((track): track is string => typeof track === "string") : [];
   const unknownTrack = tracks.find((track) => !TRACK_IDS.includes(track) && track.trim().length > 40);
   if (unknownTrack) return { ok: false, error: "A track name is too long." };
@@ -29,6 +31,7 @@ export function validateInput(body: unknown): { ok: true; value: LearningItemInp
       status,
       priority,
       tracks,
+      origin: origin.value,
       provider: stringValue(record.provider),
       startDate: dateValue(record.startDate),
       endDate: dateValue(record.endDate),
@@ -54,6 +57,13 @@ export function validateInput(body: unknown): { ok: true; value: LearningItemInp
 
 export function mergeInput(current: LearningItemInput, patch: Record<string, unknown>): unknown {
   return { ...current, ...patch };
+}
+
+function originValue(value: unknown): { ok: true; value?: LearningItemInput["origin"] } | { ok: false } {
+  if (value === undefined || value === null || value === "") return { ok: true };
+  if (typeof value !== "string") return { ok: false };
+  const found = ITEM_ORIGINS.find((origin) => origin === value);
+  return found ? { ok: true, value: found } : { ok: false };
 }
 
 function stringValue(value: unknown): string | undefined {

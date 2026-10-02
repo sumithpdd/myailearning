@@ -3,8 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { LearningCard, LearningTable } from "@/components/learning/cards";
 import { EmptyState, ModeBanner } from "@/components/ui";
-import { ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACKS } from "@/lib/constants";
-import { filterItems, parseFilters, providersOf, sortItems, type SortKey } from "@/lib/filters";
+import { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACKS } from "@/lib/constants";
+import { SHELVES, filterItems, matchesShelf, parseFilters, providersOf, sortItems, type SortKey } from "@/lib/filters";
 import type { LearningItem } from "@/types/learning";
 
 export function ItemBrowser({
@@ -58,11 +58,22 @@ export function ItemBrowser({
       <ModeBanner mode={mode} warning={warning} />
       {titleNote ? <p className="mb-4 text-sm text-muted">{titleNote}</p> : null}
       <div className="mb-4 grid gap-3">
+        <div className="flex flex-wrap gap-2">
+          <Toggle label="All" on={!filters.shelf} onClick={() => update({ shelf: null })} />
+          {SHELVES.map((shelf) => (
+            <Toggle
+              key={shelf.id}
+              label={`${shelf.label} ${items.filter((item) => matchesShelf(item, shelf.id)).length}`}
+              on={filters.shelf === shelf.id}
+              onClick={() => update({ shelf: filters.shelf === shelf.id ? null : shelf.id })}
+            />
+          ))}
+        </div>
         <label className="block">
           <span className="sr-only">Search</span>
           <input
             className="field"
-            placeholder="Search title, notes, provider, track, location, next action"
+            placeholder="Search title, notes, source, track, location, next action"
             value={query}
             onChange={(event) => update({ q: event.target.value || null })}
           />
@@ -70,6 +81,7 @@ export function ItemBrowser({
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Select label="Status" value={filters.status?.[0] || ""} onChange={(value) => update({ status: value || null })} options={ITEM_STATUSES} />
           <Select label="Priority" value={filters.priority?.[0] || ""} onChange={(value) => update({ priority: value || null })} options={ITEM_PRIORITIES} />
+          <Select label="Source" value={filters.origin || ""} onChange={(value) => update({ source: value || null })} options={ITEM_ORIGINS} />
           <Select label="Type" value={filters.type?.[0] || ""} onChange={(value) => update({ type: value || null })} options={ITEM_TYPES} />
           <Select label="Track" value={filters.track?.[0] || ""} onChange={(value) => update({ track: value || null })} options={TRACKS.map((track) => track.id)} />
           <Select label="Provider" value={filters.provider || ""} onChange={(value) => update({ provider: value || null })} options={providers} />

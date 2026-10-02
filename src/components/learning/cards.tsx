@@ -11,7 +11,7 @@ export function LearningCard({ item }: { item: LearningItem }) {
     <article className="flex h-full flex-col rounded-2xl border border-line bg-elev p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-serif text-xl leading-tight">{item.name}</h2>
-        <span className="shrink-0 text-xs text-muted">{item.type}</span>
+        <span className="shrink-0 text-xs text-muted">{[item.origin, item.type].filter(Boolean).join(" · ")}</span>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Badge tone={statusTone(item.status)}>{item.status}</Badge>
@@ -21,7 +21,7 @@ export function LearningCard({ item }: { item: LearningItem }) {
         ))}
       </div>
       <dl className="mt-4 space-y-1 text-sm">
-        {item.provider ? (
+        {item.provider && item.provider !== item.origin ? (
           <div className="flex justify-between gap-3">
             <dt className="text-muted">Provider</dt>
             <dd className="text-right">{item.provider}</dd>
@@ -69,6 +69,7 @@ export function LearningTable({ items }: { items: LearningItem[] }) {
             <th className="px-3 py-3 font-medium">Name</th>
             <th className="px-3 py-3 font-medium">Status</th>
             <th className="px-3 py-3 font-medium">Priority</th>
+            <th className="px-3 py-3 font-medium">Source</th>
             <th className="px-3 py-3 font-medium">Track</th>
             <th className="px-3 py-3 font-medium">Date</th>
             <th className="px-3 py-3 font-medium">Deadline</th>
@@ -86,6 +87,7 @@ export function LearningTable({ items }: { items: LearningItem[] }) {
               </td>
               <td className="px-3 py-3">{item.status}</td>
               <td className="px-3 py-3">{item.priority}</td>
+              <td className="px-3 py-3">{item.origin || "—"}</td>
               <td className="px-3 py-3">{item.tracks.join(", ") || "—"}</td>
               <td className="px-3 py-3">{formatDateRange(item.startDate, item.endDate)}</td>
               <td className="px-3 py-3">{formatDisplayDate(item.deadline)}</td>

@@ -50,7 +50,7 @@ NEXT_PUBLIC_APP_NAME=MyAILearning`}</pre>
         <section className="rounded-2xl border border-line bg-elev p-4 text-sm leading-6">
           <h2 className="font-serif text-2xl">What the adapter stores</h2>
           <p className="mt-2">
-            Progress, evidence, cost, session marks, and checklists are saved in a hidden note marker when the database has no matching property. Confirmed is stored as Going plus that marker, because the select has no Confirmed option. Conference, Webinar, and Learning map to the nearest existing type the same way.
+            Progress, evidence, cost, session marks, and checklists are saved in a hidden note marker when the database has no matching property. Confirmed is stored as Going plus that marker, because the select has no Confirmed option. Source and Type are written to their own selects.
           </p>
           <p className="mt-2">Deleting an item archives it. Notion pages are trashed rather than destroyed.</p>
           {properties.length > 0 ? (

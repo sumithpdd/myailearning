@@ -31,12 +31,13 @@ export function LearningDetail({
           <div className="flex flex-wrap gap-1.5">
             <Badge tone={statusTone(item.status)}>{item.status}</Badge>
             <Badge tone={priorityTone(item.priority)}>{item.priority}</Badge>
+            {item.origin ? <Badge>{item.origin}</Badge> : null}
             <Badge>{item.type}</Badge>
             {item.tracks.map((track) => (
               <Badge key={track}>{track}</Badge>
             ))}
           </div>
-          <p className="mt-3 text-sm text-muted">{item.provider || "No provider"}</p>
+          <p className="mt-3 text-sm text-muted">{[item.origin, item.provider].filter((value, index, all) => value && all.indexOf(value) === index).join(" · ") || "No source yet"}</p>
           {item.offer ? <p className="mt-3 text-sm leading-6">{item.offer}</p> : null}
           <StatusEditor item={item} readOnly={readOnly} />
         </Section>

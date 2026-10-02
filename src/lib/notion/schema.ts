@@ -68,6 +68,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   status: ["status"],
   priority: ["priority"],
   track: ["track", "tracks"],
+  origin: ["source"],
   provider: ["provider"],
   date: ["date", "start", "start date"],
   deadline: ["deadline", "due", "due date"],

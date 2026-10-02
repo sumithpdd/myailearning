@@ -2,13 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACKS } from "@/lib/constants";
+import { ITEM_ORIGINS, ITEM_PRIORITIES, ITEM_STATUSES, ITEM_TYPES, TRACKS } from "@/lib/constants";
 import { saveItem } from "@/lib/client-api";
 import type { LearningItem, LearningItemInput } from "@/types/learning";
 
 const EMPTY: LearningItemInput = {
   name: "",
-  type: "Learning",
+  type: "Course",
   status: "To Do",
   priority: "Medium",
   tracks: [],
@@ -30,6 +30,7 @@ export function ItemForm({
         status: item.status,
         priority: item.priority,
         tracks: item.tracks,
+        origin: item.origin,
         provider: item.provider,
         startDate: item.startDate,
         endDate: item.endDate,
@@ -80,7 +81,8 @@ export function ItemForm({
         Name
         <input className="field mt-1" required value={form.name} onChange={(event) => set("name", event.target.value)} />
       </label>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <FieldSelect label="Source" value={form.origin || ""} options={ITEM_ORIGINS} allowEmpty onChange={(value) => set("origin", (value || undefined) as LearningItemInput["origin"])} />
         <FieldSelect label="Type" value={form.type} options={ITEM_TYPES} onChange={(value) => set("type", value as LearningItemInput["type"])} />
         <FieldSelect label="Status" value={form.status} options={ITEM_STATUSES} onChange={(value) => set("status", value as LearningItemInput["status"])} />
         <FieldSelect label="Priority" value={form.priority} options={ITEM_PRIORITIES} onChange={(value) => set("priority", value as LearningItemInput["priority"])} />
@@ -166,16 +168,19 @@ function FieldSelect({
   value,
   options,
   onChange,
+  allowEmpty = false,
 }: {
   label: string;
   value: string;
   options: readonly string[];
   onChange: (value: string) => void;
+  allowEmpty?: boolean;
 }) {
   return (
     <label className="text-sm">
       {label}
       <select className="field mt-1" value={value} onChange={(event) => onChange(event.target.value)}>
+        {allowEmpty ? <option value="">Not set</option> : null}
         {options.map((option) => (
           <option key={option} value={option}>
             {option}

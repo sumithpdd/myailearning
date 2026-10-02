@@ -90,6 +90,7 @@ export function toInput(item: LearningItem): LearningItemInput {
     status: item.status,
     priority: item.priority,
     tracks: item.tracks,
+    origin: item.origin,
     provider: item.provider,
     startDate: item.startDate,
     endDate: item.endDate,

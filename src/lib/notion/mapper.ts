@@ -2,7 +2,7 @@ import { canonicalTracks, notionTrackName } from "@/lib/constants";
 import { embedMeta, readMeta, stripMeta } from "@/lib/meta";
 import { findProperty, optionOrFallback, type NotionSchema } from "@/lib/notion/schema";
 import type { NotionPage } from "@/lib/notion/client";
-import type { ItemMeta, ItemPriority, ItemStatus, ItemType, LearningItem, LearningItemInput } from "@/types/learning";
+import type { ItemMeta, ItemOrigin, ItemPriority, ItemStatus, ItemType, LearningItem, LearningItemInput } from "@/types/learning";
 
 type RichText = { plain_text?: string };
 type SelectValue = { name?: string } | null;
@@ -10,7 +10,14 @@ type DateValue = { start?: string | null; end?: string | null } | null;
 
 type PropertyBag = Record<string, unknown>;
 
-const TYPES: ItemType[] = ["Event", "Conference", "Workshop", "Course", "Book", "liveProject", "Webinar", "Learning", "Other"];
+const TYPES: ItemType[] = ["Event", "Workshop", "Course", "Book", "liveProject", "Video", "Article", "Podcast"];
+const ORIGINS: ItemOrigin[] = ["AI DevCamp", "Packt", "Manning", "Other"];
+const LEGACY_TYPES: Record<string, ItemType> = {
+  Conference: "Event",
+  Webinar: "Event",
+  Learning: "Course",
+  Other: "Event",
+};
 const STATUSES: ItemStatus[] = ["To Do", "Considering", "Going", "Confirmed", "In Progress", "Attended", "Completed", "Skipped"];
 const PRIORITIES: ItemPriority[] = ["Core", "High", "Medium", "Optional"];
 
@@ -19,7 +26,7 @@ export function mapNotionPage(page: NotionPage, schema?: NotionSchema): Learning
   const resolved = schema ?? schemaFromPage(properties);
   const notesRaw = readRich(properties, findProperty(resolved, "notes")?.name || "Notes");
   const meta = readMeta(notesRaw);
-  const notionType = oneOf(readSelect(properties, findProperty(resolved, "type")?.name || "Type"), TYPES, "Other");
+  const notionType = canonicalType(readSelect(properties, findProperty(resolved, "type")?.name || "Type"));
   const notionStatus = oneOf(readSelect(properties, findProperty(resolved, "status")?.name || "Status"), STATUSES, "To Do");
   const type = meta.typeDetail && TYPES.includes(meta.typeDetail) ? meta.typeDetail : notionType;
   const status = meta.statusDetail && STATUSES.includes(meta.statusDetail) ? meta.statusDetail : notionStatus;
@@ -39,6 +46,7 @@ export function mapNotionPage(page: NotionPage, schema?: NotionSchema): Learning
     status,
     priority: oneOf(readSelect(properties, findProperty(resolved, "priority")?.name || "Priority"), PRIORITIES, "Medium"),
     tracks: canonicalTracks(readMulti(properties, findProperty(resolved, "track")?.name || "Track")),
+    origin: ORIGINS.find((item) => item.toLowerCase() === readSelect(properties, findProperty(resolved, "origin")?.name || "Source").toLowerCase()),
     provider: readRich(properties, findProperty(resolved, "provider")?.name || "Provider") || undefined,
     startDate: date?.start ? date.start.slice(0, 10) : undefined,
     endDate: date?.end ? date.end.slice(0, 10) : undefined,
@@ -107,6 +115,7 @@ export function toNotionProperties(
     properties[trackProperty.name] = { multi_select: names.map((name) => ({ name })) };
   }
 
+  writeSelect(properties, schema, "origin", input.origin, ORIGINS);
   writeRich(properties, schema, "provider", input.provider);
   writeRich(properties, schema, "location", input.location);
   writeRich(properties, schema, "notes", fitNotes(input.notes, meta));
@@ -145,6 +154,7 @@ export function activitySummary(previous: LearningItem | undefined, input: Learn
   if ((previous.updatedDate || "") !== (input.updatedDate || "")) changes.push("updated date");
   if (JSON.stringify(previous.evidence || []) !== JSON.stringify(input.evidence || [])) changes.push("evidence");
   if (JSON.stringify(previous.tracks) !== JSON.stringify(input.tracks)) changes.push("tracks");
+  if ((previous.origin || "") !== (input.origin || "")) changes.push(`source → ${input.origin || "cleared"}`);
   if (changes.length === 0) return "Updated";
   return `Updated ${changes.join(", ")}`;
 }
@@ -174,10 +184,29 @@ function buildMeta(input: LearningItemInput, schema: NotionSchema, previous?: Le
   return meta;
 }
 
+function canonicalType(value: string): ItemType {
+  return LEGACY_TYPES[value] || oneOf(value, TYPES, "Course");
+}
+
 function typeFallback(type: ItemType): string[] {
-  if (type === "Conference" || type === "Webinar" || type === "Other") return ["Event", "Workshop"];
-  if (type === "Learning") return ["Course", "liveProject"];
-  return ["Event"];
+  return [type, "Course", "Event"];
+}
+
+function writeSelect(
+  properties: Record<string, unknown>,
+  schema: NotionSchema,
+  field: "origin",
+  value: string | undefined,
+  allowed: readonly string[],
+) {
+  const property = findProperty(schema, field);
+  if (!property || (property.type !== "select" && property.type !== "status" && property.type !== "unknown")) return;
+  if (!value) {
+    properties[property.name] = { select: null };
+    return;
+  }
+  const written = optionOrFallback(value, property.options, allowed);
+  if (written) properties[property.name] = { select: { name: written } };
 }
 
 function statusFallback(status: ItemStatus): string[] {

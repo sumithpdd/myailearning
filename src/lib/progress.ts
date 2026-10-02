@@ -41,7 +41,7 @@ export function defaultHours(type: ItemType, priority: string): number {
   if (type === "Book") return priority === "Core" || priority === "High" ? 6 : 3;
   if (type === "Course") return 5;
   if (type === "liveProject") return 4;
-  if (type === "Learning") return 4;
+  if (type === "Video" || type === "Article" || type === "Podcast") return 2;
   return 2;
 }
 

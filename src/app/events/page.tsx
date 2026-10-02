@@ -10,7 +10,7 @@ export default async function EventsPage() {
   const collection = await listItems();
   const events = collection.items.filter((item) => isEventType(item.type));
   return (
-    <PageFrame title="Events" lede="Conferences, workshops, and webinars. A going event should replace a study block, not sit on top of one.">
+    <PageFrame title="Events" lede="Events and workshops from the tracker. A going event replaces a study block.">
       <Suspense fallback={<p className="text-sm text-muted">Loading events…</p>}>
         <ItemBrowser
           items={events}

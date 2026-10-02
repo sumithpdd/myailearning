@@ -1,14 +1,6 @@
-export const ITEM_TYPES = [
-  "Event",
-  "Conference",
-  "Workshop",
-  "Course",
-  "Book",
-  "liveProject",
-  "Webinar",
-  "Learning",
-  "Other",
-] as const;
+export const ITEM_TYPES = ["Event", "Workshop", "Course", "Book", "liveProject", "Video", "Article", "Podcast"] as const;
+
+export const ITEM_ORIGINS = ["AI DevCamp", "Packt", "Manning", "Other"] as const;
 
 export const ITEM_STATUSES = [
   "To Do",
@@ -32,6 +24,7 @@ export const SESSION_STATUSES = [
 ] as const;
 
 export type ItemType = (typeof ITEM_TYPES)[number];
+export type ItemOrigin = (typeof ITEM_ORIGINS)[number];
 export type ItemStatus = (typeof ITEM_STATUSES)[number];
 export type ItemPriority = (typeof ITEM_PRIORITIES)[number];
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
@@ -71,6 +64,7 @@ export type LearningItem = {
   status: ItemStatus;
   priority: ItemPriority;
   tracks: string[];
+  origin?: ItemOrigin;
   provider?: string;
   startDate?: string;
   endDate?: string;
@@ -104,6 +98,7 @@ export type LearningItemInput = {
   status: ItemStatus;
   priority: ItemPriority;
   tracks: string[];
+  origin?: ItemOrigin;
   provider?: string;
   startDate?: string;
   endDate?: string;

@@ -11,7 +11,7 @@ export default async function LearningPage() {
   return (
     <PageFrame
       title="Learning"
-      lede="Search the plan, then keep the core path in front of the catalogue."
+      lede="Source is where it came from. Type is what it is. Track stays the subject."
       action={
         <Link href="/learning/new" className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink">
           New item
