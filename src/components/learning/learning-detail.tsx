@@ -9,18 +9,25 @@ import { formatDateRange, formatDisplayDate, mapsDirectionsUrl, mapsSearchUrl } 
 import { horizonIsSuggested, suggestHorizon } from "@/lib/plan";
 import { effectiveProgress, progressIsEstimated } from "@/lib/progress";
 import { relatedItems } from "@/lib/filters";
-import type { LearningItem } from "@/types/learning";
+import { RelatedPanels } from "@/components/learning/related-panels";
+import type { AgendaEntry, LearningItem, LearningTask, RelatedChoices } from "@/types/learning";
 
 export function LearningDetail({
   item,
   items,
   readOnly,
   statuses,
+  agenda = [],
+  tasks = [],
+  choices,
 }: {
   item: LearningItem;
   items: LearningItem[];
   readOnly: boolean;
   statuses: string[];
+  agenda?: AgendaEntry[];
+  tasks?: LearningTask[];
+  choices?: RelatedChoices;
 }) {
   const related = relatedItems(items, item);
   const progress = effectiveProgress(item);
@@ -43,6 +50,12 @@ export function LearningDetail({
           {item.offer ? <p className="mt-3 text-sm leading-6">{item.offer}</p> : null}
           <StatusEditor item={item} readOnly={readOnly} statuses={statuses} />
         </Section>
+        <RelatedPanels
+          agenda={agenda}
+          tasks={tasks}
+          readOnly={readOnly}
+          choices={choices || { attendance: [], plan: [], agendaPriority: [], taskStatus: [], taskType: [], taskPriority: [] }}
+        />
         <Section title="Plan">
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <Fact label="Horizon" value={item.horizon || (horizonIsSuggested(item) ? `Suggested: ${suggestHorizon(item)}` : "—")} />

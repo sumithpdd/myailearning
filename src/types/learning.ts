@@ -126,6 +126,48 @@ export type LearningItem = {
   source: "notion" | "demo";
 };
 
+export type AgendaEntry = {
+  id: string;
+  learningItemIds: string[];
+  name: string;
+  agendaType?: string;
+  plan?: string;
+  attendance?: string;
+  priority?: string;
+  tracks: string[];
+  start?: string;
+  end?: string;
+  venue?: string;
+  speaker?: string;
+  url?: string;
+  notes?: string;
+  takeaways?: string;
+  followUp?: string;
+  notionUrl?: string;
+};
+
+export type LearningTask = {
+  id: string;
+  learningItemIds: string[];
+  name: string;
+  status?: string;
+  taskType?: string;
+  priority?: string;
+  due?: string;
+  url?: string;
+  notes?: string;
+  notionUrl?: string;
+};
+
+export type RelatedChoices = {
+  attendance: string[];
+  plan: string[];
+  agendaPriority: string[];
+  taskStatus: string[];
+  taskType: string[];
+  taskPriority: string[];
+};
+
 export type LearningItemInput = {
   name: string;
   type: ItemType;

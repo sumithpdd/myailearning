@@ -15,6 +15,7 @@ Read `README.md` before changing behaviour. The plan lives in Notion. Source con
 ## Do
 
 - Read `src/lib/notion` before changing how items are stored.
+- Read agenda sessions and tasks from their related databases. The learning item stays the parent.
 - Extend `LearningItem` and `LearningItemInput` before adding a field to the UI.
 - Map new Notion properties in `schema.ts` and `mapper.ts`, then thread them through `toInput()` and `validateInput()`.
 - Keep Source, Type, and Track separate. Source is where it came from. Type is what it is. Track is the subject.

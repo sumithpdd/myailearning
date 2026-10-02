@@ -26,8 +26,8 @@ export function Badge({ children, tone = "neutral" }: { children: React.ReactNod
 export function statusTone(status: string): string {
   if (status === "Going" || status === "Confirmed") return "going";
   if (status === "In Progress") return "progress";
-  if (status === "Completed" || status === "Attended") return "done";
-  if (status === "Skipped") return "skipped";
+  if (status === "Completed" || status === "Attended" || status === "Done" || status === "Watched") return "done";
+  if (status === "Skipped" || status === "Missed" || status === "Cancelled") return "skipped";
   return "neutral";
 }
 

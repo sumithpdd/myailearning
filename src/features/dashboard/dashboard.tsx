@@ -3,17 +3,23 @@ import { LearningCard } from "@/components/learning/cards";
 import { Badge, ModeBanner, ProgressBar } from "@/components/ui";
 import { FINISH_LINE, isEventType } from "@/lib/constants";
 import { deferrals, evidenceGaps, focusList } from "@/lib/focus";
-import { formatDateRange, formatDisplayDate, todayISO } from "@/lib/dates";
+import { formatDateRange, formatDisplayDate, formatSessionWhen, todayISO } from "@/lib/dates";
 import { attentionList, nearTermItems } from "@/lib/plan";
 import { assessPace, counts, progressByTrack, weekLoads } from "@/lib/progress";
-import type { ItemCollection } from "@/types/learning";
+import type { AgendaEntry, ItemCollection, LearningTask } from "@/types/learning";
 
 export function Dashboard({
   collection,
   tracks: trackNames,
+  monitor,
 }: {
   collection: ItemCollection;
   tracks: string[];
+  monitor?: {
+    agenda: (AgendaEntry & { parentId?: string; parentName?: string })[];
+    tasks: (LearningTask & { parentId?: string; parentName?: string })[];
+    warning?: string;
+  };
 }) {
   const { items, mode, warning } = collection;
   const pace = assessPace(items);
@@ -35,7 +41,7 @@ export function Dashboard({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <ModeBanner mode={mode} warning={warning} />
+      <ModeBanner mode={mode} warning={warning || monitor?.warning} />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brass">Personal learning system</p>
@@ -70,6 +76,59 @@ export function Dashboard({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {monitor && (monitor.tasks.length > 0 || monitor.agenda.length > 0) ? (
+        <section className="mt-6 grid gap-4 lg:grid-cols-2">
+          {monitor.tasks.length > 0 ? (
+            <div className="rounded-2xl border border-line bg-elev p-4">
+              <h2 className="font-serif text-2xl">Open tasks</h2>
+              <ul className="mt-3 space-y-2 text-sm">
+                {monitor.tasks.map((task) => (
+                  <li key={task.id}>
+                    {task.parentId ? (
+                      <Link className="font-medium hover:text-accent" href={`/learning/${task.parentId}`}>
+                        {task.name}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{task.name}</span>
+                    )}
+                    <span className="text-muted">
+                      {" "}
+                      · {task.status || "To Do"}
+                      {task.due ? ` · due ${formatDisplayDate(task.due)}` : ""}
+                      {task.parentName ? ` · ${task.parentName}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {monitor.agenda.length > 0 ? (
+            <div className="rounded-2xl border border-line bg-elev p-4">
+              <h2 className="font-serif text-2xl">Open agenda</h2>
+              <ul className="mt-3 space-y-2 text-sm">
+                {monitor.agenda.map((entry) => (
+                  <li key={entry.id}>
+                    {entry.parentId ? (
+                      <Link className="font-medium hover:text-accent" href={`/learning/${entry.parentId}`}>
+                        {entry.name}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{entry.name}</span>
+                    )}
+                    <span className="text-muted">
+                      {" "}
+                      · {formatSessionWhen(entry.start, entry.end)}
+                      {entry.plan ? ` · ${entry.plan}` : ""}
+                      {entry.parentName ? ` · ${entry.parentName}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

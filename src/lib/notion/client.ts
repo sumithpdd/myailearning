@@ -156,6 +156,90 @@ export async function getNotionContext(force = false): Promise<NotionContext> {
   return context;
 }
 
+export type OpenedDatabase = {
+  databaseId: string;
+  dataSourceId?: string;
+  title?: string;
+  schema: NotionSchema;
+  version: "2025-09-03" | "2022-06-28";
+};
+
+export async function openDatabase(databaseId: string, dataSourceId?: string): Promise<OpenedDatabase> {
+  try {
+    const database = await notionFetch<NotionDatabase>(`/databases/${databaseId}`, { version: "2025-09-03" });
+    const sourceId = dataSourceId || database.data_sources?.[0]?.id;
+    if (sourceId) {
+      const dataSource = await notionFetch<NotionDatabase>(`/data_sources/${sourceId}`, { version: "2025-09-03" });
+      return {
+        databaseId,
+        dataSourceId: sourceId,
+        title: readTitle(dataSource.title) || readTitle(database.title),
+        schema: parseSchema(dataSource.properties || database.properties),
+        version: "2025-09-03",
+      };
+    }
+  } catch (error) {
+    if (!(error instanceof NotionRequestError)) throw error;
+  }
+  const database = await notionFetch<NotionDatabase>(`/databases/${databaseId}`, { version: "2022-06-28" });
+  return {
+    databaseId,
+    title: readTitle(database.title),
+    schema: parseSchema(database.properties),
+    version: "2022-06-28",
+  };
+}
+
+export async function openDataSource(dataSourceId: string): Promise<OpenedDatabase> {
+  const dataSource = await notionFetch<NotionDatabase>(`/data_sources/${dataSourceId}`, { version: "2025-09-03" });
+  return {
+    databaseId: dataSourceId,
+    dataSourceId,
+    title: readTitle(dataSource.title),
+    schema: parseSchema(dataSource.properties),
+    version: "2025-09-03",
+  };
+}
+
+export async function searchDatabases(query: string): Promise<{ id: string; title: string }[]> {
+  const versions = ["2025-09-03", "2022-06-28"] as const;
+  let lastError: unknown;
+  for (const version of versions) {
+    try {
+      const result = await notionFetch<{ results?: { object?: string; id: string; title?: { plain_text?: string }[] }[] }>("/search", {
+        method: "POST",
+        version,
+        body: { query, filter: { property: "object", value: "database" }, page_size: 10 },
+      });
+      return (result.results || [])
+        .filter((entry) => entry.id)
+        .map((entry) => ({ id: entry.id, title: readTitle(entry.title) || "" }));
+    } catch (error) {
+      lastError = error;
+      if (!(error instanceof NotionRequestError)) throw error;
+    }
+  }
+  if (lastError instanceof NotionRequestError) throw lastError;
+  return [];
+}
+
+export async function queryDatabasePages(opened: OpenedDatabase): Promise<NotionPage[]> {
+  const pages: NotionPage[] = [];
+  let cursor: string | undefined;
+  do {
+    const body: { page_size: number; start_cursor?: string } = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const path =
+      opened.version === "2025-09-03" && opened.dataSourceId
+        ? `/data_sources/${opened.dataSourceId}/query`
+        : `/databases/${opened.databaseId}/query`;
+    const result = await notionFetch<QueryResult>(path, { method: "POST", version: opened.version, body });
+    pages.push(...(result.results || []).filter((page) => page.object === "page"));
+    cursor = result.has_more ? result.next_cursor || undefined : undefined;
+  } while (cursor);
+  return pages;
+}
+
 export async function queryNotionPages(): Promise<NotionPage[]> {
   const context = await getNotionContext();
   const pages: NotionPage[] = [];

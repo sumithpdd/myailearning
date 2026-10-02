@@ -53,6 +53,23 @@ export function formatDisplayDate(iso?: string): string {
   }).format(parseISODate(iso));
 }
 
+export function formatClock(iso?: string): string {
+  if (!iso || !iso.includes("T")) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
+}
+
+export function formatSessionWhen(start?: string, end?: string): string {
+  if (!start) return "Time not set";
+  const day = formatDisplayDate(start);
+  const startTime = formatClock(start);
+  const endTime = formatClock(end);
+  if (startTime && endTime) return `${day} · ${startTime}–${endTime}`;
+  if (startTime) return `${day} · ${startTime}`;
+  return day;
+}
+
 export function formatDateRange(start?: string, end?: string): string {
   if (!start && !end) return "—";
   if (!start) return formatDisplayDate(end);

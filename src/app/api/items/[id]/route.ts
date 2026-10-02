@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { archiveItem, getItem, toInput, updateItem } from "@/lib/repository";
+import { archiveItem, getItem, relatedForItem, toInput, updateItem } from "@/lib/repository";
 import { validateInput } from "@/lib/validation";
 
 type Context = { params: Promise<{ id: string }> };
@@ -9,7 +9,15 @@ export async function GET(_request: Request, context: Context) {
   const { id } = await context.params;
   const { item, collection } = await getItem(id);
   if (!item) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  return NextResponse.json({ item, mode: collection.mode, readOnly: collection.readOnly, warning: collection.warning });
+  const related = await relatedForItem(item.id);
+  return NextResponse.json({
+    item,
+    agenda: related.agenda,
+    tasks: related.tasks,
+    mode: collection.mode,
+    readOnly: collection.readOnly,
+    warning: collection.warning || related.warning,
+  });
 }
 
 export async function PATCH(request: Request, context: Context) {

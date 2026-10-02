@@ -18,6 +18,26 @@ export async function removeItem(id: string): Promise<void> {
   if (!response.ok) throw new ApiError(data.error || "Could not archive this item.");
 }
 
+export async function saveAgenda(id: string, payload: unknown): Promise<void> {
+  const response = await fetch(`/api/agenda/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) throw new ApiError(data.error || "Could not update the session.");
+}
+
+export async function saveTask(id: string, payload: unknown): Promise<void> {
+  const response = await fetch(`/api/tasks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) throw new ApiError(data.error || "Could not update the task.");
+}
+
 export async function saveReview(payload: unknown): Promise<void> {
   const response = await fetch("/api/reviews", {
     method: "POST",

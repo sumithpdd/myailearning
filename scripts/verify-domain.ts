@@ -5,6 +5,7 @@ import { deferrals, focusList } from "../src/lib/focus";
 import { filterItems } from "../src/lib/filters";
 import { embedMeta, readMeta, stripMeta } from "../src/lib/meta";
 import { mapNotionPage } from "../src/lib/notion/mapper";
+import { mapAgendaPage, mapTaskPage } from "../src/lib/notion/related";
 import { attentionReasons, suggestHorizon } from "../src/lib/plan";
 import { assessPace, progressByTrack, weekLoads } from "../src/lib/progress";
 import { TRACKS } from "../src/lib/constants";
@@ -44,6 +45,48 @@ assert.equal(mapped.tracks[1], "Cloud");
 assert.equal(mapped.notes, "Read the guide");
 assert.equal(mapped.progress, 55);
 assert.equal(mapped.url, "https://example.com");
+
+const session = mapAgendaPage({
+  object: "page",
+  id: "session-1",
+  properties: {
+    Name: { title: [{ plain_text: "Sample session" }] },
+    Start: { date: { start: "2026-11-02T09:30:00.000Z" } },
+    End: { date: { start: "2026-11-02T10:15:00.000Z" } },
+    "Agenda Type": { select: { name: "Session" } },
+    Plan: { select: { name: "Attend Live" } },
+    Attendance: { select: { name: "Planned" } },
+    Priority: { select: { name: "Must" } },
+    Track: { multi_select: [{ name: "AI Search" }] },
+    Venue: { rich_text: [{ plain_text: "Example hall" }] },
+    Speaker: { rich_text: [{ plain_text: "Sample speaker" }] },
+    Takeaways: { rich_text: [{ plain_text: "Write the takeaway here" }] },
+    "Learning Item": { relation: [{ id: "parent-1" }] },
+  },
+});
+assert.equal(session.name, "Sample session");
+assert.equal(session.attendance, "Planned");
+assert.equal(session.plan, "Attend Live");
+assert.equal(session.venue, "Example hall");
+assert.equal(session.learningItemIds[0], "parent-1");
+assert.equal(session.start, "2026-11-02T09:30:00.000Z");
+
+const task = mapTaskPage({
+  object: "page",
+  id: "task-1",
+  properties: {
+    Name: { title: [{ plain_text: "Sample task" }] },
+    Status: { select: { name: "To Do" } },
+    "Task Type": { select: { name: "Preparation" } },
+    Priority: { select: { name: "Must" } },
+    Due: { date: { start: "2026-11-01" } },
+    "Learning Item": { relation: [{ id: "parent-1" }] },
+  },
+});
+assert.equal(task.name, "Sample task");
+assert.equal(task.status, "To Do");
+assert.equal(task.taskType, "Preparation");
+assert.equal(task.due, "2026-11-01");
 
 const sparse = mapNotionPage({
   object: "page",
