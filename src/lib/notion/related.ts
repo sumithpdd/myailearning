@@ -11,10 +11,11 @@ import {
   type OpenedDatabase,
 } from "@/lib/notion/client";
 import { findProperty, optionNames, optionOrFallback, type NotionSchema } from "@/lib/notion/schema";
-import type { AgendaEntry, LearningTask, RelatedChoices } from "@/types/learning";
+import type { AgendaEntry, LearningMilestone, LearningTask, RelatedChoices } from "@/types/learning";
 
 const AGENDA_TITLE = "Learning Agenda";
 const TASKS_TITLE = "Learning Tasks";
+const MILESTONES_TITLE = "Learning Milestones";
 
 type PropertyBag = Record<string, unknown>;
 type RichText = { plain_text?: string };
@@ -23,6 +24,7 @@ type SelectValue = { name?: string };
 export type RelatedSnapshot = {
   agenda: AgendaEntry[];
   tasks: LearningTask[];
+  milestones: LearningMilestone[];
   choices: RelatedChoices;
   warning?: string;
 };
@@ -81,8 +83,27 @@ export function mapTaskPage(page: NotionPage, schema?: NotionSchema): LearningTa
     taskType: readSelect(properties, findProperty(resolved, "taskType")?.name || "Task Type") || undefined,
     priority: readSelect(properties, findProperty(resolved, "priority")?.name || "Priority") || undefined,
     due: readDate(properties, findProperty(resolved, "due")?.name || "Due"),
+    when: readDate(properties, findProperty(resolved, "when")?.name || "When"),
+    durationMinutes: readNumber(properties, findProperty(resolved, "duration")?.name || "Duration (min)"),
     url: readUrl(properties, findProperty(resolved, "link")?.name || "Link"),
     notes: readRich(properties, findProperty(resolved, "notes")?.name || "Notes") || undefined,
+    notionUrl: page.url,
+  };
+}
+
+export function mapMilestonePage(page: NotionPage, schema?: NotionSchema): LearningMilestone {
+  const resolved = schema || schemaFromPage(page.properties);
+  const properties = page.properties;
+  return {
+    id: page.id,
+    name: readTitle(properties, findProperty(resolved, "name")?.name || "Milestone") || "Untitled milestone",
+    status: readSelect(properties, findProperty(resolved, "status")?.name || "Status") || undefined,
+    target: readDate(properties, findProperty(resolved, "target")?.name || "Target"),
+    capability: readSelect(properties, findProperty(resolved, "capability")?.name || "Capability") || undefined,
+    progress: readNumber(properties, findProperty(resolved, "progress")?.name || "Progress %"),
+    successCriteria: readRich(properties, findProperty(resolved, "successCriteria")?.name || "Success Criteria") || undefined,
+    evidence: readRich(properties, findProperty(resolved, "evidence")?.name || "Evidence") || undefined,
+    learningItemIds: readRelation(properties, findProperty(resolved, "learningItem")?.name || "Learning Items"),
     notionUrl: page.url,
   };
 }
@@ -120,7 +141,7 @@ export async function listCareerGoals(): Promise<CareerGoal[]> {
 }
 
 export async function loadRelated(): Promise<RelatedSnapshot> {
-  if (!notionConfigured()) return { agenda: [], tasks: [], choices: EMPTY_CHOICES };
+  if (!notionConfigured()) return { agenda: [], tasks: [], milestones: [], choices: EMPTY_CHOICES };
   if (cached && Date.now() - cached.at < 60_000) return cached.snapshot;
   const snapshot = await readRelated();
   cached = { at: Date.now(), snapshot };
@@ -168,14 +189,16 @@ export async function updateAgendaEntry(
 
 export async function updateLearningTask(
   id: string,
-  patch: Partial<Pick<LearningTask, "status" | "notes" | "due">>,
+  patch: Partial<Pick<LearningTask, "status" | "notes" | "due" | "when" | "durationMinutes">>,
 ): Promise<LearningTask> {
   const opened = await discover("tasks");
   if (!opened) throw new NotionRequestError(404, "Learning Tasks was not found. Share that database with the integration.");
   const properties: Record<string, unknown> = {};
   writeSelect(properties, opened.schema, "status", patch.status);
   writeRich(properties, opened.schema, "notes", patch.notes);
-  writeDue(properties, opened.schema, patch.due);
+  writeDateField(properties, opened.schema, "due", patch.due);
+  writeDateField(properties, opened.schema, "when", patch.when ?? patch.due);
+  writeNumber(properties, opened.schema, "duration", patch.durationMinutes);
   const page = await updateNotionPage(id, properties);
   clearRelatedCache();
   return mapTaskPage(page, opened.schema);
@@ -184,6 +207,8 @@ export async function updateLearningTask(
 export async function createLearningTask(input: {
   name: string;
   due?: string;
+  when?: string;
+  durationMinutes?: number;
   notes?: string;
   learningItemId?: string;
   priority?: string;
@@ -197,7 +222,9 @@ export async function createLearningTask(input: {
   writeSelect(properties, opened.schema, "priority", input.priority);
   writeSelect(properties, opened.schema, "taskType", input.taskType);
   writeRich(properties, opened.schema, "notes", input.notes);
-  writeDue(properties, opened.schema, input.due);
+  writeDateField(properties, opened.schema, "due", input.due);
+  writeDateField(properties, opened.schema, "when", input.when ?? input.due);
+  writeNumber(properties, opened.schema, "duration", input.durationMinutes);
   const relation = findProperty(opened.schema, "learningItem");
   if (input.learningItemId && relation) {
     properties[relation.name] = { relation: [{ id: input.learningItemId }] };
@@ -210,14 +237,17 @@ export async function createLearningTask(input: {
 async function readRelated(): Promise<RelatedSnapshot> {
   try {
     const [agendaSource, taskSource] = await Promise.all([discover("agenda"), discover("tasks")]);
-    const missing = [agendaSource ? "" : AGENDA_TITLE, taskSource ? "" : TASKS_TITLE].filter(Boolean);
-    const [agendaPages, taskPages] = await Promise.all([
+    const milestoneSource = await discover("milestones").catch(() => null);
+    const missing = [agendaSource ? "" : AGENDA_TITLE, taskSource ? "" : TASKS_TITLE, milestoneSource ? "" : MILESTONES_TITLE].filter(Boolean);
+    const [agendaPages, taskPages, milestonePages] = await Promise.all([
       agendaSource ? queryDatabasePages(agendaSource) : Promise.resolve([]),
       taskSource ? queryDatabasePages(taskSource) : Promise.resolve([]),
+      milestoneSource ? queryDatabasePages(milestoneSource) : Promise.resolve([]),
     ]);
     return {
       agenda: agendaPages.filter(isLive).map((page) => mapAgendaPage(page, agendaSource?.schema)).sort(byStart),
       tasks: taskPages.filter(isLive).map((page) => mapTaskPage(page, taskSource?.schema)).sort(byDue),
+      milestones: milestonePages.filter(isLive).map((page) => mapMilestonePage(page, milestoneSource?.schema)).sort(byTarget),
       choices: {
         attendance: names(agendaSource, "attendance"),
         plan: names(agendaSource, "sessionPlan"),
@@ -227,25 +257,37 @@ async function readRelated(): Promise<RelatedSnapshot> {
         taskPriority: names(taskSource, "priority"),
       },
       warning: missing.length
-        ? `Share ${missing.join(" and ")} with the Notion integration. Sessions and tasks stay hidden until that connection can read them.`
+        ? `Share ${missing.join(" and ")} with the Notion integration. Those records stay hidden until that connection can read them.`
         : undefined,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read agenda or tasks.";
-    return { agenda: [], tasks: [], choices: EMPTY_CHOICES, warning: message };
+    return { agenda: [], tasks: [], milestones: [], choices: EMPTY_CHOICES, warning: message };
   }
 }
 
-async function discover(role: "agenda" | "tasks"): Promise<OpenedDatabase | null> {
-  const title = role === "agenda" ? AGENDA_TITLE : TASKS_TITLE;
-  const explicit = process.env[role === "agenda" ? "NOTION_AGENDA_DATA_SOURCE_ID" : "NOTION_TASKS_DATA_SOURCE_ID"];
+async function discover(role: "agenda" | "tasks" | "milestones"): Promise<OpenedDatabase | null> {
+  const title = role === "agenda" ? AGENDA_TITLE : role === "tasks" ? TASKS_TITLE : MILESTONES_TITLE;
+  const explicit =
+    role === "agenda"
+      ? process.env.NOTION_AGENDA_DATA_SOURCE_ID
+      : role === "tasks"
+        ? process.env.NOTION_TASKS_DATA_SOURCE_ID
+        : process.env.NOTION_MILESTONES_DATA_SOURCE_ID;
   if (explicit) return openDataSource(explicit);
   const hits = await searchDatabases(title);
-  const match = hits.find((hit) => hit.title.toLowerCase() === title.toLowerCase());
-  if (!match) return null;
-  const opened = await openDatabase(match.id);
-  if (opened.title && opened.title.toLowerCase() !== title.toLowerCase()) return null;
-  return opened;
+  const matches = hits.filter((hit) => hit.title.toLowerCase() === title.toLowerCase());
+  const opened: OpenedDatabase[] = [];
+  for (const match of matches) {
+    const database = await openDatabase(match.id);
+    if (database.title && database.title.toLowerCase() !== title.toLowerCase()) continue;
+    opened.push(database);
+  }
+  if (role === "tasks") {
+    const related = opened.find((database) => findProperty(database.schema, "learningItem")?.type === "relation");
+    if (related) return related;
+  }
+  return opened[0] || null;
 }
 
 function names(opened: OpenedDatabase | null, field: Parameters<typeof findProperty>[1]): string[] {
@@ -278,11 +320,28 @@ function writeTitle(properties: Record<string, unknown>, schema: NotionSchema, v
   };
 }
 
-function writeDue(properties: Record<string, unknown>, schema: NotionSchema, value: string | undefined) {
+function writeDateField(
+  properties: Record<string, unknown>,
+  schema: NotionSchema,
+  field: "due" | "when",
+  value: string | undefined,
+) {
   if (value === undefined) return;
-  const property = findProperty(schema, "due");
+  const property = findProperty(schema, field);
   if (!property) return;
   properties[property.name] = value ? { date: { start: value } } : { date: null };
+}
+
+function writeNumber(
+  properties: Record<string, unknown>,
+  schema: NotionSchema,
+  field: "duration",
+  value: number | undefined,
+) {
+  if (value === undefined) return;
+  const property = findProperty(schema, field);
+  if (!property) return;
+  properties[property.name] = { number: Number.isFinite(value) ? value : null };
 }
 
 function writeRich(
@@ -300,6 +359,10 @@ function writeRich(
 
 function byStart(a: AgendaEntry, b: AgendaEntry): number {
   return (a.start || "9999").localeCompare(b.start || "9999") || a.name.localeCompare(b.name);
+}
+
+function byTarget(a: LearningMilestone, b: LearningMilestone): number {
+  return (a.target || "9999").localeCompare(b.target || "9999") || a.name.localeCompare(b.name);
 }
 
 function byDue(a: LearningTask, b: LearningTask): number {
@@ -346,6 +409,11 @@ function readMulti(properties: PropertyBag, name: string): string[] {
   const multi = bag(properties, name)?.multi_select;
   if (!Array.isArray(multi)) return [];
   return multi.map((entry) => (entry as SelectValue).name || "").filter(Boolean);
+}
+
+function readNumber(properties: PropertyBag, name: string): number | undefined {
+  const value = bag(properties, name)?.number;
+  return typeof value === "number" ? value : undefined;
 }
 
 function readDate(properties: PropertyBag, name: string): string | undefined {

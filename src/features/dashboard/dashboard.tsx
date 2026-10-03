@@ -19,19 +19,21 @@ import {
   type LinkedTask,
 } from "@/lib/execute";
 import type { Catalog } from "@/lib/notion/schema";
-import type { ItemCollection } from "@/types/learning";
+import type { ItemCollection, LearningMilestone } from "@/types/learning";
 
 export function Dashboard({
   collection,
   catalog,
   tasks,
   agenda,
+  milestones,
   warning,
 }: {
   collection: ItemCollection;
   catalog: Catalog;
   tasks: LinkedTask[];
   agenda: LinkedSession[];
+  milestones: LearningMilestone[];
   warning?: string;
 }) {
   const now = new Date();
@@ -131,23 +133,44 @@ export function Dashboard({
             Path
           </Link>
         </div>
-        {path.length === 0 ? <p className="mt-3 text-sm text-muted">Capabilities appear here once they exist on the learning plan.</p> : null}
-        <ul className="mt-3 space-y-3">
-          {path.map((entry) => (
-            <li key={entry.name}>
-              <div className="flex items-baseline justify-between gap-3 text-sm">
-                <Link href={`/milestones#${slug(entry.name)}`} className="font-medium hover:text-accent">
-                  {entry.name}
-                </Link>
-                <span className="text-muted">{entry.progress}</span>
-              </div>
-              <div className="mt-1">
-                <ProgressBar value={ladderPercent(entry.progress)} />
-              </div>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2 text-xs text-muted">These bars are Career Progress. Target dates and success criteria are not stored yet.</p>
+        {milestones.length > 0 ? (
+          <ul className="mt-3 space-y-3">
+            {milestones.slice(0, 4).map((milestone) => (
+              <li key={milestone.id}>
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <Link href={`/milestones#${milestone.id}`} className="font-medium hover:text-accent">
+                    {milestone.name}
+                  </Link>
+                  <span className="text-muted">{milestone.target ? formatDisplayDate(milestone.target) : milestone.status}</span>
+                </div>
+                <div className="mt-1">
+                  <ProgressBar value={milestone.progress || 0} />
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  {[milestone.capability, milestone.progress !== undefined ? `${milestone.progress}%` : "", milestone.status].filter(Boolean).join(" · ")}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <>
+            {path.length === 0 ? <p className="mt-3 text-sm text-muted">Milestones appear here once Learning Milestones is shared with the integration.</p> : null}
+            <ul className="mt-3 space-y-3">
+              {path.map((entry) => (
+                <li key={entry.name}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="font-medium">{entry.name}</span>
+                    <span className="text-muted">{entry.progress}</span>
+                  </div>
+                  <div className="mt-1">
+                    <ProgressBar value={ladderPercent(entry.progress)} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted">These bars are Career Progress on the learning plan. Milestone target dates show when that database is readable.</p>
+          </>
+        )}
       </section>
 
       <section className="mt-8">
@@ -217,6 +240,3 @@ function ladderPercent(progress: string): number {
   return 0;
 }
 
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}

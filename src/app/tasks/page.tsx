@@ -55,7 +55,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         />
       </div>
       <p className="mt-3 text-xs text-muted">
-        A task can be completed, rescheduled, or noted. Duration and the Learn / Practice / Build types are not on the task database yet, so the type you see is the Notion task type.
+        A task can be completed, rescheduled, or noted. Duration shows when the task has one. The type is the Notion task type.
       </p>
     </div>
   );

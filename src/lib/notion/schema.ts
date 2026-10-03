@@ -21,6 +21,7 @@ export type NotionPropertyKind =
   | "number"
   | "checkbox"
   | "status"
+  | "relation"
   | "unknown";
 
 export type SchemaOption = {
@@ -61,6 +62,7 @@ const KIND_MAP: Record<string, NotionPropertyKind> = {
   number: "number",
   checkbox: "checkbox",
   status: "status",
+  relation: "relation",
 };
 
 export function parseSchema(properties: Record<string, RawProperty> | undefined): NotionSchema {
@@ -119,9 +121,13 @@ const FIELD_ALIASES: Record<string, string[]> = {
   followUp: ["follow-up", "follow up", "followup"],
   start: ["start"],
   end: ["end"],
-  learningItem: ["learning item"],
+  learningItem: ["learning item", "learning items"],
   taskType: ["task type"],
   due: ["due", "due date"],
+  when: ["when"],
+  duration: ["duration", "duration (min)"],
+  target: ["target"],
+  successCriteria: ["success criteria"],
   capability: ["capability"],
   skill: ["skill"],
   careerProgress: ["career progress", "careerprogress"],

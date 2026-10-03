@@ -103,12 +103,12 @@ export function formatMinutes(minutes?: number): string | null {
 export function todayAgenda(tasks: LinkedTask[], sessions: LinkedSession[], now = new Date()): { scheduled: DayBlock[]; unscheduled: DayBlock[] } {
   const today = todayISO(now);
   const scheduled = [
-    ...tasks.filter((task) => dateKey(task.due) === today).map((task) => blockFromTask(task, today)),
+    ...tasks.filter((task) => dateKey(scheduleOf(task)) === today).map((task) => blockFromTask(task, today)),
     ...sessions.filter((session) => dateKey(session.start) === today).map((session) => blockFromSession(session, today)),
   ].sort(byClock);
   if (scheduled.length > 0) return { scheduled, unscheduled: [] };
   const unscheduled = tasks
-    .filter((task) => isOpenTask(task) && !task.due)
+    .filter((task) => isOpenTask(task) && !scheduleOf(task))
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || a.name.localeCompare(b.name))
     .slice(0, 6)
     .map((task) => blockFromTask(task, today));
@@ -118,8 +118,8 @@ export function todayAgenda(tasks: LinkedTask[], sessions: LinkedSession[], now 
 export function overdueTasks(tasks: LinkedTask[], now = new Date()): DayBlock[] {
   const today = todayISO(now);
   return tasks
-    .filter((task) => isOpenTask(task) && task.due && dateKey(task.due)! < today)
-    .sort((a, b) => (a.due || "").localeCompare(b.due || "") || priorityRank(a.priority) - priorityRank(b.priority))
+    .filter((task) => isOpenTask(task) && scheduleOf(task) && dateKey(scheduleOf(task))! < today)
+    .sort((a, b) => (scheduleOf(a) || "").localeCompare(scheduleOf(b) || "") || priorityRank(a.priority) - priorityRank(b.priority))
     .map((task) => blockFromTask(task, today));
 }
 
@@ -128,7 +128,7 @@ export function comingUp(tasks: LinkedTask[], sessions: LinkedSession[], now = n
   const horizon = formatISODate(addDays(now, 14));
   const blocks = [
     ...tasks
-      .filter((task) => isOpenTask(task) && task.due && dateKey(task.due)! > today && dateKey(task.due)! <= horizon)
+      .filter((task) => isOpenTask(task) && scheduleOf(task) && dateKey(scheduleOf(task))! > today && dateKey(scheduleOf(task))! <= horizon)
       .map((task) => blockFromTask(task, today)),
     ...sessions
       .filter((session) => isOpenSession(session) && session.start && dateKey(session.start)! > today && dateKey(session.start)! <= horizon)
@@ -140,12 +140,12 @@ export function comingUp(tasks: LinkedTask[], sessions: LinkedSession[], now = n
 export function nextStep(tasks: LinkedTask[], sessions: LinkedSession[], items: LearningItem[], now = new Date()): NextStep | null {
   const today = todayISO(now);
   const overdue = tasks
-    .filter((task) => isOpenTask(task) && task.due && dateKey(task.due)! < today && priorityRank(task.priority) === 0)
-    .sort((a, b) => (a.due || "").localeCompare(b.due || ""));
+    .filter((task) => isOpenTask(task) && scheduleOf(task) && dateKey(scheduleOf(task))! < today && priorityRank(task.priority) === 0)
+    .sort((a, b) => (scheduleOf(a) || "").localeCompare(scheduleOf(b) || ""));
   if (overdue[0]) return stepFromTask(overdue[0]);
 
   const todayOpen = [
-    ...tasks.filter((task) => isOpenTask(task) && dateKey(task.due) === today).map((task) => blockFromTask(task, today)),
+    ...tasks.filter((task) => isOpenTask(task) && dateKey(scheduleOf(task)) === today).map((task) => blockFromTask(task, today)),
     ...sessions.filter((session) => isOpenSession(session) && dateKey(session.start) === today).map((session) => blockFromSession(session, today)),
   ].sort(byClock);
   if (todayOpen[0]) return stepFromBlock(todayOpen[0]);
@@ -157,7 +157,7 @@ export function nextStep(tasks: LinkedTask[], sessions: LinkedSession[], items: 
 
   const high = tasks
     .filter((task) => isOpenTask(task) && priorityRank(task.priority) <= 1)
-    .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || (a.due || "9999").localeCompare(b.due || "9999"));
+    .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || (scheduleOf(a) || "9999").localeCompare(scheduleOf(b) || "9999"));
   if (high[0]) return stepFromTask(high[0]);
 
   const nearest = items
@@ -220,9 +220,9 @@ export function taskViews(tasks: LinkedTask[], now = new Date()): Record<"today"
   const today = todayISO(now);
   const open = tasks.filter(isOpenTask);
   return {
-    today: open.filter((task) => task.due && dateKey(task.due)! <= today).sort(byDue),
-    upcoming: open.filter((task) => task.due && dateKey(task.due)! > today).sort(byDue),
-    backlog: open.filter((task) => !task.due).sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || a.name.localeCompare(b.name)),
+    today: open.filter((task) => scheduleOf(task) && dateKey(scheduleOf(task))! <= today).sort(byDue),
+    upcoming: open.filter((task) => scheduleOf(task) && dateKey(scheduleOf(task))! > today).sort(byDue),
+    backlog: open.filter((task) => !scheduleOf(task)).sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || a.name.localeCompare(b.name)),
     completed: tasks.filter((task) => !isOpenTask(task)).sort((a, b) => (b.due || "").localeCompare(a.due || "") || a.name.localeCompare(b.name)),
   };
 }
@@ -232,7 +232,7 @@ export function weekStrip(tasks: LinkedTask[], sessions: LinkedSession[], now = 
   return Array.from({ length: 7 }, (_, index) => {
     const date = formatISODate(addDays(start, index));
     const titles = [
-      ...tasks.filter((task) => dateKey(task.due) === date).map((task) => task.name),
+      ...tasks.filter((task) => dateKey(scheduleOf(task)) === date).map((task) => task.name),
       ...sessions.filter((session) => dateKey(session.start) === date).map((session) => session.name),
     ];
     return {
@@ -255,7 +255,8 @@ export function taskHints(tasks: LinkedTask[]): Record<string, { remaining: numb
     if (!task.parentId || !isOpenTask(task)) continue;
     const current = hints[task.parentId] || { remaining: 0 };
     current.remaining += 1;
-    if (task.due && (!current.nextDue || task.due < current.nextDue)) current.nextDue = task.due;
+    const due = scheduleOf(task);
+    if (due && (!current.nextDue || due < current.nextDue)) current.nextDue = due;
     hints[task.parentId] = current;
   }
   return hints;
@@ -283,7 +284,7 @@ function stepFromTask(task: LinkedTask): NextStep {
     kind: "task",
     title: task.name,
     context: task.parentName,
-    minutes: undefined,
+    minutes: task.durationMinutes,
     meta: [task.capability, task.priority, task.taskType].filter((value): value is string => Boolean(value)),
     capability: task.capability,
     line: firstLine(task.notes),
@@ -322,7 +323,8 @@ function stepFromItem(item: LearningItem): NextStep {
 }
 
 function blockFromTask(task: LinkedTask, today: string): DayBlock {
-  const date = dateKey(task.due);
+  const schedule = scheduleOf(task);
+  const date = dateKey(schedule);
   return {
     id: task.id,
     kind: "task",
@@ -330,9 +332,10 @@ function blockFromTask(task: LinkedTask, today: string): DayBlock {
     parentId: task.parentId,
     parentName: task.parentName,
     capability: task.capability,
-    start: task.due,
+    start: schedule,
     date,
-    hasTime: Boolean(task.due?.includes("T")),
+    hasTime: Boolean(schedule?.includes("T")),
+    durationMinutes: task.durationMinutes,
     taskType: task.taskType,
     priority: task.priority,
     status: task.status || "To Do",
@@ -374,8 +377,12 @@ function byClock(a: DayBlock, b: DayBlock): number {
   return (a.start || "9999").localeCompare(b.start || "9999") || a.title.localeCompare(b.title);
 }
 
+function scheduleOf(task: LinkedTask): string | undefined {
+  return task.when || task.due;
+}
+
 function byDue(a: LinkedTask, b: LinkedTask): number {
-  return (a.due || "9999").localeCompare(b.due || "9999") || a.name.localeCompare(b.name);
+  return (scheduleOf(a) || "9999").localeCompare(scheduleOf(b) || "9999") || a.name.localeCompare(b.name);
 }
 
 function priorityRank(value?: string): number {

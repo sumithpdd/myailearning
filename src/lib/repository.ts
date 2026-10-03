@@ -14,7 +14,7 @@ import {
   updateLearningTask,
 } from "@/lib/notion/related";
 import type { LinkedSession, LinkedTask } from "@/lib/execute";
-import type { AgendaEntry, ItemCollection, LearningItem, LearningItemInput, LearningTask, NotionConnection, RelatedChoices } from "@/types/learning";
+import type { AgendaEntry, ItemCollection, LearningItem, LearningItemInput, LearningMilestone, LearningTask, NotionConnection, RelatedChoices } from "@/types/learning";
 
 export function credentialsConfigured(): boolean {
   return notionConfigured();
@@ -87,6 +87,7 @@ export async function listWork(): Promise<{
   items: LearningItem[];
   agenda: LinkedSession[];
   tasks: LinkedTask[];
+  milestones: LearningMilestone[];
   choices: RelatedChoices;
   mode: ItemCollection["mode"];
   readOnly: boolean;
@@ -102,6 +103,7 @@ export async function listWork(): Promise<{
     items: collection.items,
     agenda: snapshot.agenda.map((entry) => ({ ...entry, ...link(entry.learningItemIds) })),
     tasks: snapshot.tasks.map((entry) => ({ ...entry, ...link(entry.learningItemIds) })),
+    milestones: snapshot.milestones,
     choices: snapshot.choices,
     mode: collection.mode,
     readOnly: collection.readOnly,
@@ -138,7 +140,10 @@ export async function saveAgenda(
   return updateAgendaEntry(id, patch);
 }
 
-export async function saveTask(id: string, patch: Partial<Pick<LearningTask, "status" | "notes" | "due">>): Promise<LearningTask> {
+export async function saveTask(
+  id: string,
+  patch: Partial<Pick<LearningTask, "status" | "notes" | "due" | "when" | "durationMinutes">>,
+): Promise<LearningTask> {
   const collection = await listItems();
   assertWritable(collection);
   return updateLearningTask(id, patch);
@@ -147,6 +152,8 @@ export async function saveTask(id: string, patch: Partial<Pick<LearningTask, "st
 export async function addTask(input: {
   name: string;
   due?: string;
+  when?: string;
+  durationMinutes?: number;
   notes?: string;
   learningItemId?: string;
   priority?: string;

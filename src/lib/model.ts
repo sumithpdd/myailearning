@@ -1,8 +1,8 @@
 /** Machine-readable description of the Notion graph. No personal plan content. */
 export const LEARNING_MODEL = {
   summary:
-    "The app answers what to learn next and how it moves the career forward. Career Goal is the destination. Each Learning Plan row sets Capability, then Skill, then the work. Career Progress moves Beginner → Working → Applied → Expert. Applied means the skill was used in real work. Evidence is an outcome, a recorded proof, or Applied/Expert progress. Learning Agenda holds sessions. Learning Tasks holds the work. Both point at the learning item through Learning Item. Leave Capability empty when a row is not on the path.",
-  hierarchy: ["Career Goal", "Capability", "Skill", "Learning item", "Weekly plan", "Evidence", "Career Progress"],
+    "The app answers what to learn next and how it moves the career forward. Career Goal is the destination. Learning Plan is the parent. Learning Agenda, Learning Tasks, and Learning Milestones each relate to Learning Plan. There is one Learning Tasks database, and its Learning Item property is a relation. When is the scheduled start. Duration (min) is the length. Career Progress moves Beginner → Working → Applied → Expert. Applied means the skill was used in real work.",
+  hierarchy: ["Career Goal", "Learning Plan", "Agenda", "Tasks", "Milestones", "Evidence", "Career Progress"],
   careerProgress: ["Beginner", "Working", "Applied", "Expert"],
   parent: {
     database: "Learning Plan",
@@ -28,15 +28,31 @@ export const LEARNING_MODEL = {
       "Follow-up": "What to do next",
     },
   },
+  milestones: {
+    database: "Learning Milestones",
+    relation: "Learning Items",
+    fields: {
+      Milestone: "What you are trying to achieve",
+      Status: "Not Started, In Progress, Achieved, or At Risk",
+      Target: "The date it should be reached",
+      Capability: "The career capability it belongs to",
+      "Progress %": "How far the milestone itself has moved",
+      "Success Criteria": "What done means",
+      Evidence: "Proof the milestone was reached",
+      "Learning Items": "Relation to the Learning Plan rows that contribute",
+    },
+  },
   tasks: {
     database: "Learning Tasks",
     relation: "Learning Item",
     fields: {
       Name: "Task title",
       Status: "To Do, In Progress, Done, or Skipped. Set Done or Skipped when it is finished.",
-      "Task Type": "Booking, Preparation, Travel, Agenda, Learning, Networking, Follow-up, or Evidence",
-      Priority: "Must, High, Medium, or Optional",
+      "Task Type": "Logistics types such as Booking or Preparation, or execution types Learn, Practice, Build, Review, and Apply. Use the options on this database.",
+      Priority: "Must, Core, High, Medium, or Optional",
       Due: "Date it should be finished",
+      When: "Scheduled start. Use this for the day plan. Due stays the finish date.",
+      "Duration (min)": "How long the task should take",
       Link: "Related URL",
       Notes: "Extra detail",
     },

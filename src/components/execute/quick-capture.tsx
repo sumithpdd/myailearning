@@ -63,12 +63,14 @@ export function QuickCapture() {
                 const name = String(data.get("name") || "").trim();
                 const date = String(data.get("date") || "");
                 const time = String(data.get("time") || "");
+                const duration = Number(data.get("duration") || "");
                 if (!name) return;
                 setBusy(true);
                 setError("");
                 void createTask({
                   name,
                   due: date ? dateStamp(date, time || undefined) : undefined,
+                  durationMinutes: Number.isFinite(duration) && duration > 0 ? duration : undefined,
                   learningItemId: String(data.get("item") || "") || undefined,
                 })
                   .then(() => {
@@ -95,7 +97,10 @@ export function QuickCapture() {
                   <input className="field" type="time" name="time" />
                 </label>
               </div>
-              <p className="text-xs text-muted">Duration is not stored on Learning Tasks, so it is not asked here.</p>
+              <label className="text-sm">
+                <span className="mb-1 block text-muted">Duration, minutes, optional</span>
+                <input className="field" name="duration" type="number" min={1} max={480} inputMode="numeric" />
+              </label>
               <label className="text-sm">
                 <span className="mb-1 block text-muted">Learning item, optional</span>
                 <select className="field" name="item" defaultValue="">

@@ -20,7 +20,8 @@ export async function POST(request: Request) {
   const priority = optionalText(record.priority, 100);
   const taskType = optionalText(record.taskType, 100);
   const learningItemId = optionalText(record.learningItemId, 80);
-  if (notes === false || priority === false || taskType === false || learningItemId === false) {
+  const durationMinutes = optionalMinutes(record.durationMinutes);
+  if (notes === false || priority === false || taskType === false || learningItemId === false || durationMinutes === false) {
     return NextResponse.json({ error: "A field is too long." }, { status: 400 });
   }
   try {
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       priority: priority || undefined,
       taskType: taskType || undefined,
       learningItemId: learningItemId || undefined,
+      durationMinutes: typeof durationMinutes === "number" ? durationMinutes : undefined,
     });
     revalidatePath("/", "layout");
     return NextResponse.json(task, { status: 201 });
@@ -45,6 +47,13 @@ function optionalText(value: unknown, max = 2000): string | false | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   if (typeof value !== "string" || value.length > max) return false;
   return value.trim();
+}
+
+function optionalMinutes(value: unknown): number | false | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const minutes = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 24 * 60) return false;
+  return Math.round(minutes);
 }
 
 function optionalDate(value: unknown): string | false | undefined {

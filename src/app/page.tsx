@@ -9,6 +9,7 @@ export default async function HomePage() {
       catalog={catalog}
       tasks={work.tasks}
       agenda={work.agenda}
+      milestones={work.milestones}
       warning={work.warning}
     />
   );

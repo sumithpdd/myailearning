@@ -159,8 +159,23 @@ export type LearningTask = {
   taskType?: string;
   priority?: string;
   due?: string;
+  when?: string;
+  durationMinutes?: number;
   url?: string;
   notes?: string;
+  notionUrl?: string;
+};
+
+export type LearningMilestone = {
+  id: string;
+  name: string;
+  status?: string;
+  target?: string;
+  capability?: string;
+  progress?: number;
+  successCriteria?: string;
+  evidence?: string;
+  learningItemIds: string[];
   notionUrl?: string;
 };
 

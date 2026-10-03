@@ -94,6 +94,8 @@ const task = mapTaskPage({
     "Task Type": { select: { name: "Preparation" } },
     Priority: { select: { name: "Must" } },
     Due: { date: { start: "2026-11-01" } },
+    When: { date: { start: "2026-11-01T09:00:00.000Z" } },
+    "Duration (min)": { number: 90 },
     "Learning Item": { relation: [{ id: "parent-1" }] },
   },
 });
@@ -101,6 +103,8 @@ assert.equal(task.name, "Sample task");
 assert.equal(task.status, "To Do");
 assert.equal(task.taskType, "Preparation");
 assert.equal(task.due, "2026-11-01");
+assert.equal(task.when, "2026-11-01T09:00:00.000Z");
+assert.equal(task.durationMinutes, 90);
 
 const sparse = mapNotionPage({
   object: "page",
