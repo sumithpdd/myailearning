@@ -3,16 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { QuickCapture } from "@/components/execute/quick-capture";
 import { APP_NAME, FINISH_LINE } from "@/lib/constants";
 import { formatDisplayDate } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 import type { NotionConnection } from "@/types/learning";
 
-const NAV = [
+const PRIMARY = [
   { href: "/", label: "Today" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/learning", label: "Learning" },
+  { href: "/milestones", label: "Milestones" },
+  { href: "/notes", label: "Notes" },
+];
+
+const MORE = [
   { href: "/week", label: "This Week" },
   { href: "/career", label: "Career" },
-  { href: "/learning", label: "Learning" },
   { href: "/focus", label: "Focus" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/events", label: "Events" },
@@ -27,7 +34,7 @@ export function AppShell({ children, connection }: { children: React.ReactNode; 
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="min-h-full md:pl-60">
+    <div className="min-h-full pb-20 md:pb-0 md:pl-60">
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur md:hidden">
         <Link href="/" className="font-serif text-lg">
           {APP_NAME}
@@ -57,23 +64,14 @@ export function AppShell({ children, connection }: { children: React.ReactNode; 
           </Link>
           <p className="mt-1 text-xs text-sidebar-muted">Finish line {formatDisplayDate(FINISH_LINE)}</p>
         </div>
-        <nav className="flex-1 space-y-1 px-3">
-          {NAV.map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "block rounded-lg px-3 py-2 text-sm",
-                  active ? "bg-white/10 text-white" : "text-sidebar-muted hover:bg-white/5 hover:text-sidebar-ink",
-                )}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3">
+          {PRIMARY.map((item) => (
+            <NavLink key={item.href} href={item.href} label={item.label} pathname={pathname} onClick={() => setOpen(false)} />
+          ))}
+          <p className="px-3 pb-1 pt-4 text-[11px] uppercase tracking-[0.16em] text-sidebar-muted">More</p>
+          {MORE.map((item) => (
+            <NavLink key={item.href} href={item.href} label={item.label} pathname={pathname} onClick={() => setOpen(false)} />
+          ))}
         </nav>
         <div className="space-y-3 p-4">
           <ConnectionStatus connection={connection} />
@@ -81,7 +79,31 @@ export function AppShell({ children, connection }: { children: React.ReactNode; 
         </div>
       </aside>
       <div className="min-w-0">{children}</div>
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-elev md:hidden">
+        {PRIMARY.map((item) => {
+          const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link key={item.href} href={item.href} className={cn("px-1 py-2 text-center text-[11px]", active ? "font-semibold text-accent" : "text-muted")}>
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <QuickCapture />
     </div>
+  );
+}
+
+function NavLink({ href, label, pathname, onClick }: { href: string; label: string; pathname: string; onClick: () => void }) {
+  const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn("block rounded-lg px-3 py-2 text-sm", active ? "bg-white/10 text-white" : "text-sidebar-muted hover:bg-white/5 hover:text-sidebar-ink")}
+    >
+      {label}
+    </Link>
   );
 }
 

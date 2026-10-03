@@ -4,6 +4,7 @@ import { archiveNotionItem, createNotionItem, updateNotionItem } from "@/lib/not
 import { getNotionItem, listNotionItems } from "@/lib/notion/queries";
 import {
   agendaForItem,
+  createLearningTask,
   isOpenSession,
   isOpenTask,
   loadRelated,
@@ -12,6 +13,7 @@ import {
   updateAgendaEntry,
   updateLearningTask,
 } from "@/lib/notion/related";
+import type { LinkedSession, LinkedTask } from "@/lib/execute";
 import type { AgendaEntry, ItemCollection, LearningItem, LearningItemInput, LearningTask, NotionConnection, RelatedChoices } from "@/types/learning";
 
 export function credentialsConfigured(): boolean {
@@ -81,6 +83,32 @@ export async function relatedForItem(itemId: string): Promise<{
   };
 }
 
+export async function listWork(): Promise<{
+  items: LearningItem[];
+  agenda: LinkedSession[];
+  tasks: LinkedTask[];
+  choices: RelatedChoices;
+  mode: ItemCollection["mode"];
+  readOnly: boolean;
+  warning?: string;
+}> {
+  const [collection, snapshot] = await Promise.all([listItems(), loadRelated()]);
+  const parentOf = (ids: string[]) => collection.items.find((item) => ids.some((id) => samePage(id, item.id)));
+  const link = (ids: string[]) => {
+    const parent = parentOf(ids);
+    return { parentId: parent?.id, parentName: parent?.name, capability: parent?.capability };
+  };
+  return {
+    items: collection.items,
+    agenda: snapshot.agenda.map((entry) => ({ ...entry, ...link(entry.learningItemIds) })),
+    tasks: snapshot.tasks.map((entry) => ({ ...entry, ...link(entry.learningItemIds) })),
+    choices: snapshot.choices,
+    mode: collection.mode,
+    readOnly: collection.readOnly,
+    warning: collection.warning || snapshot.warning,
+  };
+}
+
 export async function monitorWork(): Promise<{
   agenda: (AgendaEntry & { parentId?: string; parentName?: string })[];
   tasks: (LearningTask & { parentId?: string; parentName?: string })[];
@@ -110,10 +138,40 @@ export async function saveAgenda(
   return updateAgendaEntry(id, patch);
 }
 
-export async function saveTask(id: string, patch: Partial<Pick<LearningTask, "status" | "notes">>): Promise<LearningTask> {
+export async function saveTask(id: string, patch: Partial<Pick<LearningTask, "status" | "notes" | "due">>): Promise<LearningTask> {
   const collection = await listItems();
   assertWritable(collection);
   return updateLearningTask(id, patch);
+}
+
+export async function addTask(input: {
+  name: string;
+  due?: string;
+  notes?: string;
+  learningItemId?: string;
+  priority?: string;
+  taskType?: string;
+}): Promise<LearningTask> {
+  const collection = await listItems();
+  assertWritable(collection);
+  return createLearningTask(input);
+}
+
+export async function appendNote(target: "item" | "task", id: string, text: string): Promise<void> {
+  const collection = await listItems();
+  assertWritable(collection);
+  if (target === "item") {
+    const { item } = await getItem(id);
+    if (!item) throw new NotionRequestError(404, "Item not found.");
+    const notes = [item.notes, text].filter(Boolean).join("\n\n");
+    await updateItem(id, { ...toInput(item), notes });
+    return;
+  }
+  const snapshot = await loadRelated();
+  const task = snapshot.tasks.find((entry) => samePage(entry.id, id));
+  if (!task) throw new NotionRequestError(404, "Task not found.");
+  const notes = [task.notes, text].filter(Boolean).join("\n\n");
+  await updateLearningTask(id, { notes });
 }
 
 export async function getItem(id: string): Promise<{ item: LearningItem | null; collection: ItemCollection }> {

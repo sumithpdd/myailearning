@@ -17,6 +17,7 @@ export function ItemBrowser({
   preset,
   defaultSort = "priority",
   titleNote,
+  hints,
 }: {
   items: LearningItem[];
   mode: "demo" | "notion";
@@ -27,6 +28,7 @@ export function ItemBrowser({
   preset?: { type?: string[] };
   defaultSort?: SortKey;
   titleNote?: string;
+  hints?: Record<string, { remaining: number; nextDue?: string }>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -131,9 +133,9 @@ export function ItemBrowser({
       ) : view === "table" ? (
         <LearningTable items={visible} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div>
           {visible.map((item) => (
-            <LearningCard key={item.id} item={item} />
+            <LearningCard key={item.id} item={item} hint={hints ? hints[item.id] || { remaining: 0 } : undefined} />
           ))}
         </div>
       )}

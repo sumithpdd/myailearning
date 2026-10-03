@@ -1,59 +1,36 @@
 import Link from "next/link";
-import { Badge, priorityTone, ProgressBar, statusTone } from "@/components/ui";
-import { daysUntil, formatDateRange, formatDisplayDate } from "@/lib/dates";
+import { ProgressBar } from "@/components/ui";
+import { formatDateRange, formatDisplayDate } from "@/lib/dates";
 import { effectiveProgress, progressIsEstimated } from "@/lib/progress";
 import type { LearningItem } from "@/types/learning";
 
-export function LearningCard({ item }: { item: LearningItem }) {
+export function LearningCard({ item, hint }: { item: LearningItem; hint?: { remaining: number; nextDue?: string } }) {
   const progress = effectiveProgress(item);
-  const expiry = expiryLabel(item);
+  const subject = item.capability || item.tracks[0];
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-line bg-elev p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <h2 className="font-serif text-xl leading-tight">{item.name}</h2>
-        <span className="shrink-0 text-xs text-muted">{[item.origin, item.type].filter(Boolean).join(" · ")}</span>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge tone={statusTone(item.status)}>{item.status}</Badge>
-        <Badge tone={priorityTone(item.priority)}>{item.priority}</Badge>
-        {item.tracks.map((track) => (
-          <Badge key={track}>{track}</Badge>
-        ))}
-      </div>
-      <dl className="mt-4 space-y-1 text-sm">
-        {item.provider && item.provider !== item.origin ? (
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted">Provider</dt>
-            <dd className="text-right">{item.provider}</dd>
-          </div>
-        ) : null}
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">When</dt>
-          <dd className="text-right">{item.startDate ? formatDateRange(item.startDate, item.endDate) : formatDisplayDate(item.deadline)}</dd>
-        </div>
-        {item.location ? (
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted">Where</dt>
-            <dd className="max-w-[14rem] text-right">{item.location}</dd>
-          </div>
-        ) : null}
-      </dl>
-      <div className="mt-4">
+    <article className="flex h-full flex-col border-b border-line py-4">
+      {subject ? <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{subject}</p> : null}
+      <h2 className="mt-1 text-lg font-semibold leading-6">{item.name}</h2>
+      <p className="mt-1 text-sm text-muted">{item.status}</p>
+      <div className="mt-3">
         <div className="mb-1 flex justify-between text-xs text-muted">
-          <span>{progressIsEstimated(item) ? "Estimated progress" : "Progress"}</span>
+          <span>{progressIsEstimated(item) ? "Estimated" : "Progress"}</span>
           <span>{progress}%</span>
         </div>
         <ProgressBar value={progress} />
       </div>
-      {item.nextAction ? (
-        <p className="mt-4 text-sm leading-5">
-          <span className="text-muted">Next: </span>
-          {item.nextAction}
+      <p className="mt-3 text-sm leading-5">
+        <span className="text-muted">Next: </span>
+        {item.nextAction || "No next action yet."}
+      </p>
+      {hint ? (
+        <p className="mt-1 text-sm text-muted">
+          {hint.remaining} open task{hint.remaining === 1 ? "" : "s"}
+          {hint.nextDue ? ` · Next ${formatDisplayDate(hint.nextDue)}` : ""}
         </p>
       ) : null}
-      {expiry ? <p className="mt-3 text-sm font-medium text-warn">{expiry}</p> : null}
-      <Link href={`/learning/${item.id}`} className="mt-4 inline-flex text-sm font-semibold text-accent">
-        View details
+      <Link href={`/learning/${item.id}`} className="mt-3 inline-flex text-sm font-semibold text-accent">
+        Continue
       </Link>
     </article>
   );
@@ -98,13 +75,4 @@ export function LearningTable({ items }: { items: LearningItem[] }) {
       </table>
     </div>
   );
-}
-
-function expiryLabel(item: LearningItem): string | null {
-  if (!item.deadline || item.status === "Completed" || item.status === "Attended" || item.status === "Skipped") return null;
-  const days = daysUntil(item.deadline);
-  if (days < 0) return `Overdue by ${Math.abs(days)} days`;
-  if (days === 0) return "Deadline today";
-  if (days <= 21) return days === 1 ? "Expires tomorrow" : `Expires in ${days} days`;
-  return null;
 }

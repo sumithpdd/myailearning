@@ -7,6 +7,8 @@ import { embedMeta, readMeta, stripMeta } from "../src/lib/meta";
 import { mapNotionPage } from "../src/lib/notion/mapper";
 import { mapAgendaPage, mapTaskPage } from "../src/lib/notion/related";
 import { nextLearningAction, skillGaps } from "../src/lib/career";
+import { nextStep, presentTasks, taskViews, todayAgenda, type LinkedTask } from "../src/lib/execute";
+import type { LearningItem } from "../src/types/learning";
 import { attentionReasons, suggestHorizon } from "../src/lib/plan";
 import { assessPace, progressByTrack, weekLoads } from "../src/lib/progress";
 import { TRACKS } from "../src/lib/constants";
@@ -141,5 +143,45 @@ assert.ok(searched.some((item) => item.name === "Sample workshop"));
 
 const hidden = filterItems(items, {}, today);
 assert.equal(hidden.some((item) => item.status === "Skipped"), false);
+
+const course = {
+  id: "course",
+  name: "Sample course",
+  type: "Course",
+  status: "In Progress",
+  priority: "Core",
+  tracks: [],
+  capability: "Sample capability",
+  nextAction: "Continue the next module",
+  source: "demo",
+} as LearningItem;
+const overdueTask: LinkedTask = {
+  id: "overdue",
+  learningItemIds: [],
+  name: "Overdue core task",
+  status: "To Do",
+  priority: "Core",
+  due: "2026-09-01",
+  capability: "Sample capability",
+};
+const datedTask: LinkedTask = {
+  id: "dated",
+  learningItemIds: [],
+  name: "Dated task",
+  status: "To Do",
+  priority: "High",
+  due: "2026-10-03T09:00:00",
+};
+const doneTask: LinkedTask = { id: "done", learningItemIds: [], name: "Finished task", status: "Done", due: "2026-10-03" };
+const looseTask: LinkedTask = { id: "loose", learningItemIds: [], name: "Undated task", status: "To Do", priority: "High" };
+const day = todayAgenda([datedTask, doneTask, looseTask], [], new Date(2026, 9, 3));
+assert.equal(day.scheduled.length, 2);
+assert.equal(day.scheduled[0]?.id, "dated");
+assert.equal(day.scheduled[1]?.completed, true);
+assert.equal(presentTasks([datedTask])[0]?.durationMinutes, undefined);
+assert.equal(nextStep([overdueTask, datedTask], [], [course], new Date(2026, 9, 3))?.id, "overdue");
+assert.equal(nextStep([], [], [course], new Date(2026, 9, 3))?.title, "Continue the next module");
+assert.equal(taskViews([looseTask, doneTask], new Date(2026, 9, 3)).backlog[0]?.id, "loose");
+assert.equal(taskViews([doneTask], new Date(2026, 9, 3)).completed.length, 1);
 
 console.log(`verify-domain ok (${items.length} demo items, core pace ${pace.corePercent}%)`);

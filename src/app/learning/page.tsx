@@ -2,16 +2,18 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ItemBrowser } from "@/components/learning/item-browser";
 import { PageFrame } from "@/components/ui";
-import { listCatalog, listItems } from "@/lib/repository";
+import { taskHints } from "@/lib/execute";
+import { listCatalog, listWork } from "@/lib/repository";
 
 export const metadata = { title: "Learning" };
 
 export default async function LearningPage() {
-  const [collection, catalog] = await Promise.all([listItems(), listCatalog()]);
+  const [work, catalog] = await Promise.all([listWork(), listCatalog()]);
+  const collection = { items: work.items, mode: work.mode, readOnly: work.readOnly, warning: work.warning };
   return (
     <PageFrame
       title="Learning"
-      lede="Source is where it came from. Type is what it is. Track stays the subject."
+      lede="What you are learning. Open an item for the full record."
       action={
         <Link href="/learning/new" className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink">
           New item
@@ -26,6 +28,7 @@ export default async function LearningPage() {
           readOnly={collection.readOnly}
           basePath="/learning"
           catalog={catalog}
+          hints={taskHints(work.tasks)}
         />
       </Suspense>
     </PageFrame>

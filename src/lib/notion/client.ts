@@ -277,6 +277,18 @@ export async function createNotionPage(properties: Record<string, unknown>): Pro
   });
 }
 
+export async function createNotionPageIn(opened: OpenedDatabase, properties: Record<string, unknown>): Promise<NotionPage> {
+  const parent =
+    opened.version === "2025-09-03" && opened.dataSourceId
+      ? { type: "data_source_id", data_source_id: opened.dataSourceId }
+      : { type: "database_id", database_id: opened.databaseId };
+  return notionFetch<NotionPage>("/pages", {
+    method: "POST",
+    version: opened.version,
+    body: { parent, properties },
+  });
+}
+
 export async function updateNotionPage(pageId: string, properties: Record<string, unknown>): Promise<NotionPage> {
   const context = await getNotionContext();
   return notionFetch<NotionPage>(`/pages/${pageId}`, {

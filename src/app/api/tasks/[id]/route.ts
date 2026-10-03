@@ -10,7 +10,7 @@ export async function PATCH(request: Request, context: Context) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Expected a JSON object." }, { status: 400 });
   const record = body as Record<string, unknown>;
-  const patch: { status?: string; notes?: string } = {};
+  const patch: { status?: string; notes?: string; due?: string } = {};
   for (const key of ["status", "notes"] as const) {
     if (!(key in record)) continue;
     const value = record[key];
@@ -18,6 +18,13 @@ export async function PATCH(request: Request, context: Context) {
       return NextResponse.json({ error: `${key} must be text.` }, { status: 400 });
     }
     patch[key] = value;
+  }
+  if ("due" in record) {
+    const value = record.due;
+    if (typeof value !== "string" || value.length > 40 || (value && !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?([+-]\d{2}:\d{2}|Z)?)?$/.test(value))) {
+      return NextResponse.json({ error: "due must be a date." }, { status: 400 });
+    }
+    patch.due = value;
   }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   try {

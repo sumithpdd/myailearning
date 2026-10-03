@@ -28,6 +28,26 @@ export async function saveAgenda(id: string, payload: unknown): Promise<void> {
   if (!response.ok) throw new ApiError(data.error || "Could not update the session.");
 }
 
+export async function createTask(payload: unknown): Promise<void> {
+  const response = await fetch("/api/tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) throw new ApiError(data.error || "Could not add the task.");
+}
+
+export async function captureNote(payload: unknown): Promise<void> {
+  const response = await fetch("/api/notes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) throw new ApiError(data.error || "Could not save the note.");
+}
+
 export async function saveTask(id: string, payload: unknown): Promise<void> {
   const response = await fetch(`/api/tasks/${id}`, {
     method: "PATCH",

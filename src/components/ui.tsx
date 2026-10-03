@@ -51,7 +51,7 @@ export function ModeBanner({ mode, warning }: { mode: "demo" | "notion"; warning
     return (
       <div className="mb-4 rounded-xl border border-brass/40 bg-brass/10 px-4 py-3 text-sm">
         <strong className="font-semibold">Demo mode.</strong> Add <code>NOTION_TOKEN</code> and <code>NOTION_DATABASE_ID</code> to{" "}
-        <code>.env.local</code> to use Events &amp; Learning Tracker.{" "}
+        <code>.env.local</code>.{" "}
         <Link href="/settings" className="underline">
           Settings
         </Link>

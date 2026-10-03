@@ -1,5 +1,6 @@
 import {
   NotionRequestError,
+  createNotionPageIn,
   notionConfigured,
   openDataSource,
   openDatabase,
@@ -167,14 +168,41 @@ export async function updateAgendaEntry(
 
 export async function updateLearningTask(
   id: string,
-  patch: Partial<Pick<LearningTask, "status" | "notes">>,
+  patch: Partial<Pick<LearningTask, "status" | "notes" | "due">>,
 ): Promise<LearningTask> {
   const opened = await discover("tasks");
   if (!opened) throw new NotionRequestError(404, "Learning Tasks was not found. Share that database with the integration.");
   const properties: Record<string, unknown> = {};
   writeSelect(properties, opened.schema, "status", patch.status);
   writeRich(properties, opened.schema, "notes", patch.notes);
+  writeDue(properties, opened.schema, patch.due);
   const page = await updateNotionPage(id, properties);
+  clearRelatedCache();
+  return mapTaskPage(page, opened.schema);
+}
+
+export async function createLearningTask(input: {
+  name: string;
+  due?: string;
+  notes?: string;
+  learningItemId?: string;
+  priority?: string;
+  taskType?: string;
+}): Promise<LearningTask> {
+  const opened = await discover("tasks");
+  if (!opened) throw new NotionRequestError(404, "Learning Tasks was not found. Share that database with the integration.");
+  const properties: Record<string, unknown> = {};
+  writeTitle(properties, opened.schema, input.name);
+  writeSelect(properties, opened.schema, "status", "To Do");
+  writeSelect(properties, opened.schema, "priority", input.priority);
+  writeSelect(properties, opened.schema, "taskType", input.taskType);
+  writeRich(properties, opened.schema, "notes", input.notes);
+  writeDue(properties, opened.schema, input.due);
+  const relation = findProperty(opened.schema, "learningItem");
+  if (input.learningItemId && relation) {
+    properties[relation.name] = { relation: [{ id: input.learningItemId }] };
+  }
+  const page = await createNotionPageIn(opened, properties);
   clearRelatedCache();
   return mapTaskPage(page, opened.schema);
 }
@@ -241,6 +269,20 @@ function writeSelect(
   const written = optionOrFallback(value, property.options, [value]);
   if (!written) throw new NotionRequestError(400, `${value} is not an option on ${property.name}.`);
   properties[property.name] = property.type === "status" ? { status: { name: written } } : { select: { name: written } };
+}
+
+function writeTitle(properties: Record<string, unknown>, schema: NotionSchema, value: string) {
+  const property = findProperty(schema, "name");
+  properties[property?.name || "Name"] = {
+    title: [{ type: "text", text: { content: value.trim().slice(0, 200) } }],
+  };
+}
+
+function writeDue(properties: Record<string, unknown>, schema: NotionSchema, value: string | undefined) {
+  if (value === undefined) return;
+  const property = findProperty(schema, "due");
+  if (!property) return;
+  properties[property.name] = value ? { date: { start: value } } : { date: null };
 }
 
 function writeRich(
