@@ -5,13 +5,14 @@ import {
   openDataSource,
   openDatabase,
   queryDatabasePages,
+  openSearchHit,
   searchDatabases,
   updateNotionPage,
   type NotionPage,
   type OpenedDatabase,
 } from "@/lib/notion/client";
 import { findProperty, optionNames, optionOrFallback, type NotionSchema } from "@/lib/notion/schema";
-import type { AgendaEntry, LearningMilestone, LearningTask, RelatedChoices } from "@/types/learning";
+import type { AgendaEntry, LearningMilestone, LearningTask, RelatedChoices, SourceReport } from "@/types/learning";
 
 const AGENDA_TITLE = "Learning Agenda";
 const TASKS_TITLE = "Learning Tasks";
@@ -26,6 +27,12 @@ export type RelatedSnapshot = {
   tasks: LearningTask[];
   milestones: LearningMilestone[];
   choices: RelatedChoices;
+  sources: {
+    agenda: SourceReport;
+    tasks: SourceReport;
+    milestones: SourceReport;
+    goal: SourceReport;
+  };
   warning?: string;
 };
 
@@ -140,9 +147,24 @@ export async function listCareerGoals(): Promise<CareerGoal[]> {
   }
 }
 
-export async function loadRelated(): Promise<RelatedSnapshot> {
-  if (!notionConfigured()) return { agenda: [], tasks: [], milestones: [], choices: EMPTY_CHOICES };
-  if (cached && Date.now() - cached.at < 60_000) return cached.snapshot;
+export async function loadRelated(force = false): Promise<RelatedSnapshot> {
+  if (!notionConfigured()) {
+    const disconnected = unavailable("Notion", "not_connected", "Notion credentials are missing.");
+    return {
+      agenda: [],
+      tasks: [],
+      milestones: [],
+      choices: EMPTY_CHOICES,
+      sources: {
+        agenda: { ...disconnected, name: AGENDA_TITLE },
+        tasks: { ...disconnected, name: TASKS_TITLE },
+        milestones: { ...disconnected, name: MILESTONES_TITLE },
+        goal: { ...disconnected, name: "Career Goal" },
+      },
+      warning: "Not connected to Notion.",
+    };
+  }
+  if (!force && cached && Date.now() - cached.at < 60_000) return cached.snapshot;
   const snapshot = await readRelated();
   cached = { at: Date.now(), snapshot };
   return snapshot;
@@ -235,35 +257,95 @@ export async function createLearningTask(input: {
 }
 
 async function readRelated(): Promise<RelatedSnapshot> {
+  const [agenda, tasks, milestones, goal] = await Promise.all([
+    readSource("agenda"),
+    readSource("tasks"),
+    readSource("milestones"),
+    readGoal(),
+  ]);
+  const sources = { agenda: agenda.report, tasks: tasks.report, milestones: milestones.report, goal: goal.report };
+  return {
+    agenda: agenda.pages.map((page) => mapAgendaPage(page, agenda.opened?.schema)).sort(byStart),
+    tasks: tasks.pages.map((page) => mapTaskPage(page, tasks.opened?.schema)).sort(byDue),
+    milestones: milestones.pages.map((page) => mapMilestonePage(page, milestones.opened?.schema)).sort(byTarget),
+    choices: {
+      attendance: names(agenda.opened, "attendance"),
+      plan: names(agenda.opened, "sessionPlan"),
+      agendaPriority: names(agenda.opened, "priority"),
+      taskStatus: names(tasks.opened, "status"),
+      taskType: names(tasks.opened, "taskType"),
+      taskPriority: names(tasks.opened, "priority"),
+    },
+    sources,
+    warning: connectionWarning(Object.values(sources)),
+  };
+}
+
+async function readSource(role: "agenda" | "tasks" | "milestones"): Promise<{ opened: OpenedDatabase | null; pages: NotionPage[]; report: SourceReport }> {
+  const title = role === "agenda" ? AGENDA_TITLE : role === "tasks" ? TASKS_TITLE : MILESTONES_TITLE;
   try {
-    const [agendaSource, taskSource] = await Promise.all([discover("agenda"), discover("tasks")]);
-    const milestoneSource = await discover("milestones").catch(() => null);
-    const missing = [agendaSource ? "" : AGENDA_TITLE, taskSource ? "" : TASKS_TITLE, milestoneSource ? "" : MILESTONES_TITLE].filter(Boolean);
-    const [agendaPages, taskPages, milestonePages] = await Promise.all([
-      agendaSource ? queryDatabasePages(agendaSource) : Promise.resolve([]),
-      taskSource ? queryDatabasePages(taskSource) : Promise.resolve([]),
-      milestoneSource ? queryDatabasePages(milestoneSource) : Promise.resolve([]),
-    ]);
+    const opened = await discover(role);
+    if (!opened) {
+      return { opened: null, pages: [], report: unavailable(title, "not_connected", `${title} is not shared with this integration.`) };
+    }
+    const pages = (await queryDatabasePages(opened)).filter(isLive);
+    const relation = findProperty(opened.schema, "learningItem");
     return {
-      agenda: agendaPages.filter(isLive).map((page) => mapAgendaPage(page, agendaSource?.schema)).sort(byStart),
-      tasks: taskPages.filter(isLive).map((page) => mapTaskPage(page, taskSource?.schema)).sort(byDue),
-      milestones: milestonePages.filter(isLive).map((page) => mapMilestonePage(page, milestoneSource?.schema)).sort(byTarget),
-      choices: {
-        attendance: names(agendaSource, "attendance"),
-        plan: names(agendaSource, "sessionPlan"),
-        agendaPriority: names(agendaSource, "priority"),
-        taskStatus: names(taskSource, "status"),
-        taskType: names(taskSource, "taskType"),
-        taskPriority: names(taskSource, "priority"),
+      opened,
+      pages,
+      report: {
+        name: title,
+        state: pages.length > 0 ? "ready" : "empty",
+        databaseId: opened.databaseId,
+        dataSourceId: opened.dataSourceId,
+        schemaLoaded: true,
+        queryOk: true,
+        count: pages.length,
+        relationFound: relation?.type === "relation",
       },
-      warning: missing.length
-        ? `Share ${missing.join(" and ")} with the Notion integration. Those records stay hidden until that connection can read them.`
-        : undefined,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not read agenda or tasks.";
-    return { agenda: [], tasks: [], milestones: [], choices: EMPTY_CHOICES, warning: message };
+    const message = error instanceof Error ? error.message : "Could not read this database.";
+    const missing = error instanceof NotionRequestError && (error.status === 401 || error.status === 403 || error.status === 404);
+    return { opened: null, pages: [], report: unavailable(title, missing ? "not_connected" : "error", message) };
   }
+}
+
+async function readGoal(): Promise<{ report: SourceReport }> {
+  try {
+    const goals = await listCareerGoals();
+    const explicit = process.env.NOTION_GOAL_DATA_SOURCE_ID;
+    if (!explicit && goals.length === 0) {
+      const hits = await searchDatabases("Career Goal");
+      const match = hits.find((hit) => hit.title.toLowerCase() === "career goal");
+      if (!match) return { report: unavailable("Career Goal", "not_connected", "Career Goal is not shared with this integration.") };
+    }
+    return {
+      report: {
+        name: "Career Goal",
+        state: goals.length > 0 ? "ready" : "empty",
+        dataSourceId: explicit,
+        schemaLoaded: true,
+        queryOk: true,
+        count: goals.length,
+        relationFound: false,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not read Career Goal.";
+    return { report: unavailable("Career Goal", "error", message) };
+  }
+}
+
+function unavailable(name: string, state: SourceReport["state"], error: string): SourceReport {
+  return { name, state, schemaLoaded: false, queryOk: false, count: 0, relationFound: false, error };
+}
+
+export function connectionWarning(reports: SourceReport[]): string | undefined {
+  const lines = reports
+    .filter((report) => report.state === "not_connected" || report.state === "error")
+    .map((report) => (report.state === "not_connected" ? `${report.name} isn't connected.` : `${report.name} could not be read.`));
+  return lines.length > 0 ? lines.join(" ") : undefined;
 }
 
 async function discover(role: "agenda" | "tasks" | "milestones"): Promise<OpenedDatabase | null> {
@@ -279,7 +361,8 @@ async function discover(role: "agenda" | "tasks" | "milestones"): Promise<Opened
   const matches = hits.filter((hit) => hit.title.toLowerCase() === title.toLowerCase());
   const opened: OpenedDatabase[] = [];
   for (const match of matches) {
-    const database = await openDatabase(match.id);
+    const database = await openSearchHit(match);
+    if (!database) continue;
     if (database.title && database.title.toLowerCase() !== title.toLowerCase()) continue;
     opened.push(database);
   }

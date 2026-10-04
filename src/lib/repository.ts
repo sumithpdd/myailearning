@@ -1,4 +1,4 @@
-import { NotionRequestError, getNotionContext, notionConfigured } from "@/lib/notion/client";
+import { NotionRequestError, getNotionContext, notionConfigured, readPagePlainText } from "@/lib/notion/client";
 import { catalogFromSchema, type Catalog } from "@/lib/notion/schema";
 import { archiveNotionItem, createNotionItem, updateNotionItem } from "@/lib/notion/mutations";
 import { getNotionItem, listNotionItems } from "@/lib/notion/queries";
@@ -14,10 +14,29 @@ import {
   updateLearningTask,
 } from "@/lib/notion/related";
 import type { LinkedSession, LinkedTask } from "@/lib/execute";
-import type { AgendaEntry, ItemCollection, LearningItem, LearningItemInput, LearningMilestone, LearningTask, NotionConnection, RelatedChoices } from "@/types/learning";
+import type { AgendaEntry, ItemCollection, LearningItem, LearningItemInput, LearningMilestone, LearningTask, NotionConnection, RelatedChoices, SourceReport } from "@/types/learning";
 
 export function credentialsConfigured(): boolean {
   return notionConfigured();
+}
+
+export async function diagnoseSources(): Promise<SourceReport[]> {
+  const [collection, related] = await Promise.all([listItems(), loadRelated(true)]);
+  const plan: SourceReport = !notionConfigured()
+    ? { name: "Learning Plan", state: "not_connected", schemaLoaded: false, queryOk: false, count: 0, relationFound: false, error: "Notion credentials are missing." }
+    : collection.mode === "notion"
+      ? {
+          name: "Learning Plan",
+          state: collection.items.length > 0 ? "ready" : "empty",
+          databaseId: process.env.NOTION_DATABASE_ID,
+          dataSourceId: process.env.NOTION_DATA_SOURCE_ID,
+          schemaLoaded: true,
+          queryOk: true,
+          count: collection.items.length,
+          relationFound: false,
+        }
+      : { name: "Learning Plan", state: "error", schemaLoaded: false, queryOk: false, count: 0, relationFound: false, error: collection.warning || "Learning Plan could not be read." };
+  return [plan, related.sources.agenda, related.sources.tasks, related.sources.milestones, related.sources.goal];
 }
 
 export async function describeConnection(): Promise<NotionConnection> {
@@ -73,6 +92,7 @@ export async function relatedForItem(itemId: string): Promise<{
   tasks: LearningTask[];
   milestones: LearningMilestone[];
   choices: RelatedChoices;
+  sources: RelatedSnapshotSources;
   warning?: string;
 }> {
   const snapshot = await loadRelated();
@@ -81,9 +101,12 @@ export async function relatedForItem(itemId: string): Promise<{
     tasks: tasksForItem(snapshot, itemId),
     milestones: snapshot.milestones.filter((milestone) => milestone.learningItemIds.some((id) => samePage(id, itemId))),
     choices: snapshot.choices,
+    sources: snapshot.sources,
     warning: snapshot.warning,
   };
 }
+
+type RelatedSnapshotSources = Awaited<ReturnType<typeof loadRelated>>["sources"];
 
 export async function listWork(): Promise<{
   items: LearningItem[];
@@ -91,6 +114,7 @@ export async function listWork(): Promise<{
   tasks: LinkedTask[];
   milestones: LearningMilestone[];
   choices: RelatedChoices;
+  sources: RelatedSnapshotSources;
   mode: ItemCollection["mode"];
   readOnly: boolean;
   warning?: string;
@@ -107,6 +131,7 @@ export async function listWork(): Promise<{
     tasks: snapshot.tasks.map((entry) => ({ ...entry, ...link(entry.learningItemIds) })),
     milestones: snapshot.milestones,
     choices: snapshot.choices,
+    sources: snapshot.sources,
     mode: collection.mode,
     readOnly: collection.readOnly,
     warning: collection.warning || snapshot.warning,
@@ -186,6 +211,13 @@ export async function appendNote(target: "item" | "task", id: string, text: stri
 export async function getItem(id: string): Promise<{ item: LearningItem | null; collection: ItemCollection }> {
   const collection = await listItems();
   const item = collection.items.find((entry) => entry.id === id) || null;
+  if (item && notionConfigured()) {
+    try {
+      item.pageContent = (await readPagePlainText(item.id)) || undefined;
+    } catch {
+      item.pageContent = undefined;
+    }
+  }
   if (item || !notionConfigured()) return { item, collection };
   try {
     const live = await getNotionItem(id);

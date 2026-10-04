@@ -2,13 +2,13 @@ import { SchemaEditor, type ChoiceProperty } from "@/components/settings/schema-
 import { PageFrame } from "@/components/ui";
 import { getNotionContext, notionConfigured } from "@/lib/notion/client";
 import { choiceProperties } from "@/lib/notion/schema";
-import { listItems } from "@/lib/repository";
+import { diagnoseSources, listItems } from "@/lib/repository";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const configured = notionConfigured();
-  const collection = await listItems();
+  const [collection, sources] = await Promise.all([listItems(), diagnoseSources()]);
   let notionTitle: string | undefined;
   let version: string | undefined;
   let properties: string[] = [];
@@ -46,6 +46,29 @@ export default async function SettingsPage() {
               Database: {notionTitle}. API version {version}.
             </p>
           ) : null}
+          <h3 className="mt-4 font-medium">Databases</h3>
+          <ul className="mt-2 space-y-3">
+            {sources.map((source) => (
+              <li key={source.name}>
+                <p>
+                  {source.name} {source.state === "ready" || source.state === "empty" ? "Connected" : source.state === "not_connected" ? "Not connected" : "Query error"}
+                </p>
+                <p className="text-xs text-muted">
+                  {[
+                    source.databaseId ? `database ${source.databaseId}` : "",
+                    source.dataSourceId ? `data source ${source.dataSourceId}` : "",
+                    source.schemaLoaded ? "schema loaded" : "schema not loaded",
+                    source.queryOk ? "query ok" : "query failed",
+                    `${source.count} records`,
+                    source.relationFound ? "relation found" : "relation not found",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                {source.error ? <p className="text-xs text-warn">{source.error}</p> : null}
+              </li>
+            ))}
+          </ul>
           <h3 className="mt-4 font-medium">.env.local</h3>
           <pre className="mt-2 overflow-x-auto rounded-xl bg-canvas p-3 text-xs">{`NOTION_TOKEN=
 NOTION_DATABASE_ID=

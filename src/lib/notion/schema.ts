@@ -131,7 +131,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   capability: ["capability"],
   skill: ["skill"],
   careerProgress: ["career progress", "careerprogress"],
-  progress: ["progress"],
+  progress: ["progress", "progress %"],
   cost: ["cost", "price"],
   evidence: ["evidence"],
 };

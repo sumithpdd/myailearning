@@ -128,7 +128,22 @@ export type LearningItem = {
   sessions?: SessionProgress[];
   checklist?: Record<string, boolean>;
   activity?: ActivityEntry[];
+  pageContent?: string;
   source: "notion" | "demo";
+};
+
+export type SourceState = "not_connected" | "empty" | "error" | "ready";
+
+export type SourceReport = {
+  name: string;
+  state: SourceState;
+  databaseId?: string;
+  dataSourceId?: string;
+  schemaLoaded: boolean;
+  queryOk: boolean;
+  count: number;
+  relationFound: boolean;
+  error?: string;
 };
 
 export type AgendaEntry = {

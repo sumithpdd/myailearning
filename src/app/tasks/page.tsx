@@ -2,6 +2,7 @@ import Link from "next/link";
 import { WorkList } from "@/components/execute/work-list";
 import { ModeBanner } from "@/components/ui";
 import { presentTasks, taskViews } from "@/lib/execute";
+import { sourceGap } from "@/lib/item-experience";
 import { listWork } from "@/lib/repository";
 
 export const metadata = { title: "Tasks" };
@@ -21,6 +22,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const work = await listWork();
   const groups = taskViews(work.tasks);
   const blocks = presentTasks(groups[view]);
+  const gap = sourceGap(work.sources.tasks);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
@@ -36,11 +38,14 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             href={entry.id === "today" ? "/tasks" : `/tasks?view=${entry.id}`}
             className={entry.id === view ? "rounded-full bg-ink px-3 py-1.5 text-canvas" : "rounded-full border border-line px-3 py-1.5"}
           >
-            {entry.label} {groups[entry.id].length}
+            {entry.label} {gap ? "" : groups[entry.id].length}
           </Link>
         ))}
       </nav>
       <div className="mt-4">
+        {gap ? (
+          <p className="text-sm text-warn">{gap}</p>
+        ) : (
         <WorkList
           blocks={blocks}
           empty={
@@ -53,6 +58,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                   : "No upcoming tasks."
           }
         />
+        )}
       </div>
       <p className="mt-3 text-xs text-muted">
         A task can be completed, rescheduled, or noted. Duration shows when the task has one. The type is the Notion task type.

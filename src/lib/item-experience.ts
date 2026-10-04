@@ -1,6 +1,6 @@
 import { PROGRESS_LADDER } from "@/lib/career";
 import { addDays, formatClock, formatDisplayDate, formatISODate, parseISODate, todayISO } from "@/lib/dates";
-import type { AgendaEntry, LearningItem, LearningMilestone, LearningTask } from "@/types/learning";
+import type { AgendaEntry, LearningItem, LearningMilestone, LearningTask, SourceReport } from "@/types/learning";
 
 export type NextMove = {
   kind: "session" | "task" | "written";
@@ -113,14 +113,14 @@ export function taskBucket(task: LearningTask): "To do" | "In progress" | "Done"
 
 export function noteFeed(item: LearningItem, agenda: AgendaEntry[], tasks: LearningTask[]): NoteEntry[] {
   const notes: NoteEntry[] = [];
-  if (item.notes?.trim()) notes.push({ id: `${item.id}-notes`, title: item.name, body: item.notes.trim(), kind: classify(item.notes), when: item.updatedAt });
+  if (item.notes?.trim()) notes.push({ id: `${item.id}-notes`, title: "General notes", body: item.notes.trim(), kind: "Notes", when: item.updatedAt });
   for (const entry of item.evidence || []) {
     notes.push({ id: `${item.id}-evidence-${entry}`, title: item.name, body: entry, kind: "Evidence" });
   }
   for (const session of agenda) {
     if (session.takeaways?.trim()) notes.push({ id: `${session.id}-takeaways`, title: session.name, body: session.takeaways.trim(), kind: "Takeaways", when: session.start });
-    if (session.notes?.trim()) notes.push({ id: `${session.id}-notes`, title: session.name, body: session.notes.trim(), kind: classify(session.notes), when: session.start });
-    if (session.followUp?.trim()) notes.push({ id: `${session.id}-follow`, title: session.name, body: session.followUp.trim(), kind: "Ideas", when: session.start });
+    if (session.notes?.trim()) notes.push({ id: `${session.id}-notes`, title: session.name, body: session.notes.trim(), kind: "Notes", when: session.start });
+    if (session.followUp?.trim()) notes.push({ id: `${session.id}-follow`, title: session.name, body: session.followUp.trim(), kind: "Notes", when: session.start });
   }
   for (const task of tasks) {
     if (task.notes?.trim()) notes.push({ id: `${task.id}-notes`, title: task.name, body: task.notes.trim(), kind: classify(task.notes), when: task.when || task.due });
@@ -129,9 +129,35 @@ export function noteFeed(item: LearningItem, agenda: AgendaEntry[], tasks: Learn
 }
 
 export function nextRung(progress?: string): string | null {
-  const index = PROGRESS_LADDER.findIndex((step) => step.toLowerCase() === (progress || "").toLowerCase());
-  if (index < 0) return PROGRESS_LADDER[0];
+  if (!progress?.trim()) return null;
+  const index = PROGRESS_LADDER.findIndex((step) => step.toLowerCase() === progress.toLowerCase());
+  if (index < 0) return null;
   return PROGRESS_LADDER[index + 1] || null;
+}
+
+export function sourceGap(report?: SourceReport): string | null {
+  if (!report || report.state === "ready" || report.state === "empty") return null;
+  return report.state === "not_connected" ? `${report.name} isn't connected.` : `${report.name} could not be read.`;
+}
+
+export function dayPlan(agenda: AgendaEntry[]): { day: string; when: string; title: string; venue?: string }[] {
+  const days = new Map<string, AgendaEntry[]>();
+  for (const entry of [...agenda].sort((a, b) => (a.start || "9999").localeCompare(b.start || "9999"))) {
+    const key = entry.start?.slice(0, 10) || "unscheduled";
+    const list = days.get(key) || [];
+    list.push(entry);
+    days.set(key, list);
+  }
+  return [...days.entries()].map(([day, entries]) => {
+    const lead = entries.find((entry) => (entry.priority || "").toLowerCase() === "must") || entries[0];
+    const venues = [...new Set(entries.map((entry) => entry.venue).filter((venue): venue is string => Boolean(venue)))];
+    return {
+      day,
+      when: rangeLabel(entries),
+      title: entries.length === 1 ? entries[0].name : lead?.name || `${entries.length} sessions`,
+      venue: venues[0],
+    };
+  });
 }
 
 export function evidenceNeeded(item: LearningItem, milestones: LearningMilestone[]): string | null {
@@ -196,6 +222,13 @@ function openTask(task: LearningTask): boolean {
 function openSession(entry: AgendaEntry): boolean {
   const attendance = (entry.attendance || "Planned").toLowerCase();
   return !["attended", "watched", "missed", "cancelled"].includes(attendance) && (entry.plan || "").toLowerCase() !== "skip";
+}
+
+function rangeLabel(entries: AgendaEntry[]): string {
+  const start = formatClock(entries.find((entry) => formatClock(entry.start))?.start);
+  const end = formatClock([...entries].reverse().find((entry) => formatClock(entry.end))?.end);
+  if (start && end) return `${start}–${end}`;
+  return start || "Time not set";
 }
 
 function spanMinutes(start?: string, end?: string): number {

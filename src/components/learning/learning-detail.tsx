@@ -10,12 +10,14 @@ import { noteLabels } from "@/lib/execute";
 import { relatedItems } from "@/lib/filters";
 import {
   dayParts,
+  dayPlan,
   evidenceNeeded,
   isGathering,
   nextMove,
   nextRung,
   noteFeed,
   progressStory,
+  sourceGap,
   statusWord,
   taskBucket,
   taskPhase,
@@ -25,17 +27,9 @@ import {
 } from "@/lib/item-experience";
 import { horizonIsSuggested, suggestHorizon } from "@/lib/plan";
 import { effectiveProgress, progressIsEstimated } from "@/lib/progress";
-import type { AgendaEntry, LearningItem, LearningMilestone, LearningTask, RelatedChoices } from "@/types/learning";
+import type { AgendaEntry, LearningItem, LearningMilestone, LearningTask, RelatedChoices, SourceReport } from "@/types/learning";
 
-const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "plan", label: "Plan" },
-  { id: "agenda", label: "Agenda" },
-  { id: "tasks", label: "Tasks" },
-  { id: "notes", label: "Notes & evidence" },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
+type TabId = "overview" | "plan" | "agenda" | "tasks" | "notes" | "details" | "resources";
 
 const EMPTY_CHOICES: RelatedChoices = {
   attendance: [],
@@ -55,6 +49,7 @@ export function LearningDetail({
   tasks = [],
   milestones = [],
   choices = EMPTY_CHOICES,
+  sources,
 }: {
   item: LearningItem;
   items: LearningItem[];
@@ -64,9 +59,9 @@ export function LearningDetail({
   tasks?: LearningTask[];
   milestones?: LearningMilestone[];
   choices?: RelatedChoices;
+  sources?: { agenda: SourceReport; tasks: SourceReport; milestones: SourceReport };
 }) {
   const [tab, setTab] = useState<TabId>("overview");
-  const [details, setDetails] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const gathering = isGathering(item.type);
@@ -77,32 +72,48 @@ export function LearningDetail({
   const session = agenda.find((entry) => entry.id === sessionId) || null;
   const recorded = !progressIsEstimated(item) && typeof item.progress === "number" ? item.progress : undefined;
   const headline = story.overall ?? recorded;
+  const tabs: { id: TabId; label: string }[] = gathering
+    ? [
+        { id: "overview", label: "Overview" },
+        { id: "agenda", label: "Agenda" },
+        { id: "tasks", label: "Tasks" },
+        { id: "notes", label: "Notes" },
+        { id: "details", label: "Details" },
+      ]
+    : [
+        { id: "overview", label: "Overview" },
+        { id: "plan", label: "Progress" },
+        { id: "tasks", label: "Tasks" },
+        { id: "notes", label: "Notes" },
+        { id: "resources", label: "Resources" },
+      ];
 
   return (
     <div className="pb-16">
-      <ItemHeader item={item} gathering={gathering} move={move} headline={headline} target={target} onDetails={() => setDetails(true)} />
+      <ItemHeader item={item} gathering={gathering} />
       <nav className="mt-6 flex gap-1 overflow-x-auto border-b border-line">
-        {TABS.map((entry) => (
+        {tabs.map((entry) => (
           <button
             key={entry.id}
             type="button"
             className={tab === entry.id ? "border-b-2 border-accent px-3 py-2 text-sm font-semibold" : "px-3 py-2 text-sm text-muted"}
             onClick={() => setTab(entry.id)}
           >
-            {entry.id === "agenda" && !gathering ? "Activities" : entry.label}
+            {entry.label}
           </button>
         ))}
       </nav>
 
       {tab === "overview" ? (
-        <Overview item={item} gathering={gathering} move={move} story={story} headline={headline} target={target} needed={needed} agenda={agenda} onOpenAgenda={() => setTab("agenda")} />
+        <Overview item={item} move={move} story={story} headline={headline} target={target} needed={needed} agenda={agenda} tasks={tasks} sources={sources} milestones={milestones} />
       ) : null}
-      {tab === "plan" ? <PlanTab item={item} tasks={tasks} milestones={milestones} needed={needed} /> : null}
+      {tab === "plan" ? <PlanTab item={item} tasks={tasks} milestones={milestones} needed={needed} agendaGap={sourceGap(sources?.agenda)} taskGap={sourceGap(sources?.tasks)} /> : null}
       {tab === "agenda" ? (
-        <AgendaTab agenda={agenda} choices={choices} readOnly={readOnly} onOpen={setSessionId} />
+        <AgendaTab agenda={agenda} tasks={tasks} choices={choices} readOnly={readOnly} onOpen={setSessionId} gap={sourceGap(sources?.agenda)} />
       ) : null}
-      {tab === "tasks" ? <TasksTab item={item} tasks={tasks} choices={choices} readOnly={readOnly} /> : null}
+      {tab === "tasks" ? <TasksTab item={item} tasks={tasks} choices={choices} readOnly={readOnly} gap={sourceGap(sources?.tasks)} /> : null}
       {tab === "notes" ? <NotesTab item={item} agenda={agenda} tasks={tasks} readOnly={readOnly} /> : null}
+      {tab === "details" || tab === "resources" ? <div className="mt-6"><DetailsBody item={item} items={items} readOnly={readOnly} statuses={statuses} /></div> : null}
 
       <button
         type="button"
@@ -112,11 +123,6 @@ export function LearningDetail({
         + Note
       </button>
 
-      {details ? (
-        <Drawer title="Details" onClose={() => setDetails(false)}>
-          <DetailsBody item={item} items={items} readOnly={readOnly} statuses={statuses} />
-        </Drawer>
-      ) : null}
       {session ? (
         <SessionDrawer item={item} entry={session} choices={choices} readOnly={readOnly} onClose={() => setSessionId(null)} />
       ) : null}
@@ -125,67 +131,27 @@ export function LearningDetail({
   );
 }
 
-function ItemHeader({
-  item,
-  gathering,
-  move,
-  headline,
-  target,
-  onDetails,
-}: {
-  item: LearningItem;
-  gathering: boolean;
-  move: NextMove | null;
-  headline?: number;
-  target: string | null;
-  onDetails: () => void;
-}) {
+function ItemHeader({ item, gathering }: { item: LearningItem; gathering: boolean }) {
   const start = dayParts(item.startDate);
   const end = dayParts(item.endDate);
-  const career = [item.skill || item.capability, item.careerProgress, target ? `→ ${target}` : ""].filter(Boolean).join(" ");
   return (
-    <header>
+    <header className="sticky top-14 z-20 -mx-4 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{[item.status, item.priority].filter(Boolean).join(" · ")}</p>
+      <h1 className="mt-1 text-3xl font-semibold tracking-tight">{item.name}</h1>
       {gathering && start ? (
-        <div className="sticky top-14 z-20 -mx-4 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:mb-4 md:border-0 md:bg-transparent md:p-0">
-          <div className="flex items-center gap-3">
-            <DateBlock parts={start} />
-            {end && item.endDate?.slice(0, 10) !== item.startDate?.slice(0, 10) ? (
-              <>
-                <span className="text-muted">→</span>
-                <DateBlock parts={end} />
-              </>
-            ) : null}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{item.name}</p>
-              <p className="truncate text-xs text-muted">{[item.location, move?.kind === "session" ? move.title : ""].filter(Boolean).join(" · ")}</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-        {[item.type, item.priority, item.status].filter(Boolean).join(" · ")}
-      </p>
-      <div className="mt-1 flex items-start justify-between gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight">{item.name}</h1>
-        <button type="button" className="shrink-0 text-sm text-accent" onClick={onDetails}>
-          Details
-        </button>
-      </div>
-      <p className="mt-2 text-sm text-muted">
-        {[formatDateRange(item.startDate, item.endDate), item.location, item.tracks.join(" · "), item.provider].filter((value) => value && value !== "—").join(" · ")}
-      </p>
-      {headline !== undefined ? (
-        <div className="mt-4">
-          <div className="mb-1 flex justify-between text-xs text-muted">
-            <span>Progress</span>
-            <span>{headline}%</span>
-          </div>
-          <ProgressBar value={headline} />
+        <div className="mt-3 flex items-center gap-3">
+          <DateBlock parts={start} />
+          {end && item.endDate?.slice(0, 10) !== item.startDate?.slice(0, 10) ? (
+            <>
+              <span className="text-muted">→</span>
+              <DateBlock parts={end} />
+            </>
+          ) : null}
+          {item.location ? <p className="text-sm text-muted">{item.location}</p> : null}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-muted">{statusWord(item.status)}</p>
+        <p className="mt-2 text-sm text-muted">{[formatDateRange(item.startDate, item.endDate), item.provider].filter((value) => value && value !== "—").join(" · ")}</p>
       )}
-      {career ? <p className="mt-3 text-sm">{career}</p> : null}
     </header>
   );
 }
@@ -202,36 +168,108 @@ function DateBlock({ parts }: { parts: { day: string; month: string; weekday: st
 
 function Overview({
   item,
-  gathering,
   move,
   story,
   headline,
   target,
   needed,
   agenda,
-  onOpenAgenda,
+  tasks,
+  sources,
+  milestones,
 }: {
   item: LearningItem;
-  gathering: boolean;
   move: NextMove | null;
   story: ReturnType<typeof progressStory>;
   headline?: number;
   target: string | null;
   needed: string | null;
   agenda: AgendaEntry[];
-  onOpenAgenda: () => void;
+  tasks: LearningTask[];
+  sources?: { agenda: SourceReport; tasks: SourceReport; milestones: SourceReport };
+  milestones: LearningMilestone[];
 }) {
+  const agendaGap = sourceGap(sources?.agenda);
+  const taskGap = sourceGap(sources?.tasks);
+  const milestoneGap = sourceGap(sources?.milestones);
+  const days = dayPlan(agenda);
+  const venues = [...new Set(agenda.map((entry) => entry.venue).filter((venue): venue is string => Boolean(venue)))];
+  const classified = Boolean(item.capability || item.skill || item.careerProgress);
+  const before = tasks.filter((task) => taskPhase(task, item) === "Before");
+  const beforeDone = before.filter((task) => taskBucket(task) === "Done").length;
   return (
     <div className="mt-6 space-y-6">
       <NextCard move={move} />
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">About</h2>
-        <p className="mt-2 text-sm leading-6">{item.why || item.offer || "No description yet."}</p>
-      </section>
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Progress</h2>
-        {headline === undefined && story.slices.length === 0 ? <p className="mt-2 text-sm text-muted">{statusWord(item.status)}</p> : null}
-        <ul className="mt-3 space-y-2">
+      {headline !== undefined ? (
+        <div>
+          <div className="mb-1 flex justify-between text-xs text-muted">
+            <span>Progress</span>
+            <span>{headline}%</span>
+          </div>
+          <ProgressBar value={headline} />
+        </div>
+      ) : (
+        <p className="text-sm text-muted">{statusWord(item.status)}</p>
+      )}
+      <p className="text-sm text-muted">
+        {[
+          item.startDate && item.endDate ? `${inclusiveDays(item.startDate, item.endDate)} days` : "",
+          agendaGap ? null : agenda.length > 0 ? `${agenda.length} agenda sessions` : "",
+          taskGap ? null : before.length > 0 ? `Preparation ${beforeDone}/${before.length}` : "",
+          milestoneGap ? null : milestones.length > 0 || (item.evidence || []).length > 0 ? `Evidence ${(item.evidence || []).length}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {item.why ? <Block title="Why" body={item.why} empty="" /> : null}
+      {item.outcome ? <Block title="Outcome" body={item.outcome} empty="" /> : null}
+      {needed ? <Block title="Evidence" body={needed} empty="" /> : null}
+      {days.length > 0 ? (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Your plan</h2>
+          <ul className="mt-3 space-y-3">
+            {days.map((day) => (
+              <li key={day.day}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">{day.day === "unscheduled" ? "Time not set" : formatDisplayDate(day.day)}</p>
+                <p className="font-medium">{day.title}</p>
+                <p className="text-sm text-muted">{[day.when, day.venue].filter(Boolean).join(" · ")}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : agendaGap ? (
+        <p className="text-sm text-warn">{agendaGap}</p>
+      ) : null}
+      {venues.length > 0 ? (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Locations</h2>
+          <ul className="mt-3 space-y-3">
+            {venues.map((venue) => (
+              <li key={venue}>
+                <p className="font-medium">{venue}</p>
+                <p className="mt-1 flex gap-3 text-sm">
+                  <a className="font-semibold text-accent" href={mapsSearchUrl(venue)} target="_blank" rel="noreferrer">Open map</a>
+                  <a className="font-semibold text-accent" href={mapsDirectionsUrl(venue)} target="_blank" rel="noreferrer">Directions</a>
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {classified ? (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Career connection</h2>
+          <p className="mt-2 text-sm">{[item.capability, item.skill, item.careerProgress, target ? `→ ${target}` : ""].filter(Boolean).join(" · ")}</p>
+        </section>
+      ) : (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Career connection</h2>
+          <p className="mt-2 text-sm">Not classified yet</p>
+          <Link href={`/learning/${item.id}/edit`} className="mt-2 inline-block text-sm font-semibold text-accent">Set career connection</Link>
+        </section>
+      )}
+      {story.slices.length > 0 ? (
+        <ul className="space-y-2">
           {story.slices.map((slice) => (
             <li key={slice.label}>
               <div className="mb-1 flex justify-between text-sm">
@@ -242,26 +280,6 @@ function Overview({
             </li>
           ))}
         </ul>
-      </section>
-      <section className="rounded-2xl border border-line bg-elev p-4">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Career impact</h2>
-        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-          <Fact label="Capability" value={item.capability || "Not set"} />
-          <Fact label="Skill" value={item.skill || "Not set"} />
-          <Fact label="Current" value={item.careerProgress || "Not set"} />
-          <Fact label="Target" value={target || "At the top of the ladder"} />
-        </dl>
-        {needed ? <p className="mt-3 text-sm leading-6">{needed}</p> : <p className="mt-3 text-sm text-muted">Evidence still needs a milestone or a written outcome.</p>}
-      </section>
-      {gathering && agenda.length > 0 ? (
-        <button type="button" className="text-sm font-semibold text-accent" onClick={onOpenAgenda}>
-          {agenda.length} sessions on the agenda
-        </button>
-      ) : null}
-      {!gathering && item.url ? (
-        <a className="text-sm font-semibold text-accent" href={item.url} target="_blank" rel="noreferrer">
-          Resource
-        </a>
       ) : null}
     </div>
   );
@@ -283,62 +301,77 @@ function PlanTab({
   tasks,
   milestones,
   needed,
+  agendaGap,
+  taskGap,
 }: {
   item: LearningItem;
   tasks: LearningTask[];
   milestones: LearningMilestone[];
   needed: string | null;
+  agendaGap?: string | null;
+  taskGap?: string | null;
 }) {
   const preparation = tasks.filter((task) => taskPhase(task, item) === "Before");
+  const evidence = needed || milestones.find((milestone) => milestone.evidence)?.evidence;
   return (
     <div className="mt-6 space-y-6">
-      <Block title="Why it matters" body={item.why} empty="Why this item is on the plan is still empty." />
-      <Block title="Learning outcome" body={item.outcome} empty="No outcome written yet." />
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Success</h2>
-        {milestones.length === 0 && tasks.length === 0 ? <p className="mt-2 text-sm text-muted">No milestones or tasks describe success yet.</p> : null}
-        <ul className="mt-2 space-y-2 text-sm">
-          {milestones.map((milestone) => (
-            <li key={milestone.id}>
-              {milestone.name}
-              {milestone.successCriteria ? <span className="text-muted"> — {milestone.successCriteria}</span> : null}
-            </li>
-          ))}
-          {tasks.map((task) => (
-            <li key={task.id}>
-              {taskBucket(task) === "Done" ? "✓" : "□"} {task.name}
-            </li>
-          ))}
-        </ul>
-      </section>
-      <Block title="Evidence target" body={needed || milestones.find((milestone) => milestone.evidence)?.evidence} empty="No evidence target on the linked milestones." />
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Preparation</h2>
-        {preparation.length === 0 ? <p className="mt-2 text-sm text-muted">No preparation tasks dated before this item, and none typed as booking, preparation, or travel.</p> : null}
-        <ul className="mt-2 space-y-1 text-sm">
-          {preparation.map((task) => (
-            <li key={task.id}>
-              {taskBucket(task) === "Done" ? "✓" : "□"} {task.name}
-            </li>
-          ))}
-        </ul>
-      </section>
+      {item.why ? <Block title="Why" body={item.why} empty="" /> : null}
+      {item.outcome ? <Block title="Outcomes" body={item.outcome} empty="" /> : null}
+      {milestones.length > 0 || tasks.length > 0 ? (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Success</h2>
+          <ul className="mt-2 space-y-2 text-sm">
+            {milestones.map((milestone) => (
+              <li key={milestone.id}>
+                {milestone.name}
+                {milestone.successCriteria ? <span className="text-muted"> — {milestone.successCriteria}</span> : null}
+              </li>
+            ))}
+            {tasks.map((task) => (
+              <li key={task.id}>
+                {taskBucket(task) === "Done" ? "✓" : "□"} {task.name}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {evidence ? <Block title="Evidence" body={evidence} empty="" /> : null}
+      {preparation.length > 0 ? (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Preparation</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {preparation.map((task) => (
+              <li key={task.id}>
+                {taskBucket(task) === "Done" ? "✓" : "□"} {task.name}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {item.pageContent ? <Block title="Additional notes" body={item.pageContent} empty="" /> : null}
+      {agendaGap ? <p className="text-sm text-warn">{agendaGap}</p> : null}
+      {taskGap ? <p className="text-sm text-warn">{taskGap}</p> : null}
     </div>
   );
 }
 
 function AgendaTab({
   agenda,
+  tasks,
   choices,
   readOnly,
   onOpen,
+  gap,
 }: {
   agenda: AgendaEntry[];
+  tasks: LearningTask[];
   choices: RelatedChoices;
   readOnly: boolean;
   onOpen: (id: string) => void;
+  gap?: string | null;
 }) {
   const days = useMemo(() => groupDays(agenda), [agenda]);
+  if (gap) return <p className="mt-6 text-sm text-warn">{gap}</p>;
   if (agenda.length === 0) return <p className="mt-6 text-sm text-muted">No agenda sessions are linked to this item.</p>;
   return (
     <div className="mt-6 space-y-6">
@@ -353,7 +386,12 @@ function AgendaTab({
                   <button type="button" className="min-w-0 text-left" onClick={() => onOpen(entry.id)}>
                     <p className="text-xs text-muted">{clockLabel(entry)}</p>
                     <p className="font-medium">{entry.name}</p>
-                    <p className="text-sm text-muted">{[entry.agendaType, entry.speaker, entry.venue].filter(Boolean).join(" · ")}</p>
+                    <p className="text-sm text-muted">{[entry.agendaType, entry.tracks.join(" · "), entry.speaker].filter(Boolean).join(" · ")}</p>
+                    {entry.venue ? (
+                      <a className="text-sm text-accent" href={mapsDirectionsUrl(entry.venue)} target="_blank" rel="noreferrer">
+                        {entry.venue}
+                      </a>
+                    ) : null}
                   </button>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     {entry.priority ? <Badge tone={priorityTone(entry.priority)}>{entry.priority}</Badge> : null}
@@ -363,6 +401,15 @@ function AgendaTab({
                 <AttendanceSelect entry={entry} options={withCurrent(choices.attendance, entry.attendance)} readOnly={readOnly} />
               </li>
             ))}
+            {tasks
+              .filter((task) => (task.when || task.due)?.slice(0, 10) === day)
+              .map((task) => (
+                <li key={task.id} className="relative pb-4 pl-4 text-sm">
+                  <span className="absolute -left-1 top-1.5 h-2 w-2 rounded-full bg-line" />
+                  <p className="text-xs text-muted">{task.taskType || "Task"}</p>
+                  <p>{taskBucket(task) === "Done" ? "✓" : "□"} {task.name}</p>
+                </li>
+              ))}
           </ol>
         </section>
       ))}
@@ -370,7 +417,8 @@ function AgendaTab({
   );
 }
 
-function TasksTab({ item, tasks, choices, readOnly }: { item: LearningItem; tasks: LearningTask[]; choices: RelatedChoices; readOnly: boolean }) {
+function TasksTab({ item, tasks, choices, readOnly, gap }: { item: LearningItem; tasks: LearningTask[]; choices: RelatedChoices; readOnly: boolean; gap?: string | null }) {
+  if (gap) return <p className="mt-6 text-sm text-warn">{gap}</p>;
   if (tasks.length === 0) return <p className="mt-6 text-sm text-muted">No tasks are linked to this item.</p>;
   const phases: TaskPhase[] = ["Before", "During", "After", "Open"];
   const buckets = ["To do", "In progress", "Done", "Skipped"] as const;
@@ -382,7 +430,7 @@ function TasksTab({ item, tasks, choices, readOnly }: { item: LearningItem; task
         if (rows.length === 0) return null;
         return (
           <section key={phase}>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{phase}</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{phase === "Open" ? "Open" : `${phase} event`}</h2>
             <ul className="mt-2 divide-y divide-line border-y border-line">
               {rows.map((task) => (
                 <TaskRow key={task.id} task={task} choices={choices} readOnly={readOnly} />
@@ -435,7 +483,8 @@ function TaskRow({ task, choices, readOnly }: { task: LearningTask; choices: Rel
 
 function NotesTab({ item, agenda, tasks, readOnly }: { item: LearningItem; agenda: AgendaEntry[]; tasks: LearningTask[]; readOnly: boolean }) {
   const [filter, setFilter] = useState<NoteEntry["kind"] | "All">("All");
-  const notes = noteFeed(item, agenda, tasks);
+  const notes = noteFeed(item, agenda, tasks).filter((note) => note.title !== "General notes");
+  const general = item.notes?.trim();
   const visible = filter === "All" ? notes : notes.filter((note) => note.kind === filter);
   const filters = ["All", "Notes", "Takeaways", "Ideas", "Questions", "Evidence"] as const;
   return (
@@ -447,7 +496,19 @@ function NotesTab({ item, agenda, tasks, readOnly }: { item: LearningItem; agend
           </button>
         ))}
       </div>
-      {visible.length === 0 ? <p className="text-sm text-muted">Nothing captured in this filter yet.</p> : null}
+      {general && (filter === "All" || filter === "Notes") ? (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">General notes</h2>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{general}</p>
+        </section>
+      ) : null}
+      {item.pageContent && filter === "All" ? (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Additional notes</h2>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{item.pageContent}</p>
+        </section>
+      ) : null}
+      {visible.length === 0 && !general ? <p className="text-sm text-muted">Nothing captured in this filter yet.</p> : null}
       <ul className="divide-y divide-line border-y border-line">
         {visible.map((note) => (
           <li key={note.id} className="py-3">
@@ -536,6 +597,12 @@ function SessionDrawer({
         {entry.agendaType ? <Badge>{entry.agendaType}</Badge> : null}
       </div>
       <p className="mt-3 text-sm">{[entry.speaker, entry.venue].filter(Boolean).join(" · ") || "No speaker or venue."}</p>
+      {entry.venue ? (
+        <p className="mt-2 flex gap-3 text-sm">
+          <a className="font-semibold text-accent" href={mapsSearchUrl(entry.venue)} target="_blank" rel="noreferrer">Open map</a>
+          <a className="font-semibold text-accent" href={mapsDirectionsUrl(entry.venue)} target="_blank" rel="noreferrer">Directions</a>
+        </p>
+      ) : null}
       {entry.url ? (
         <a className="mt-2 block text-sm text-accent underline" href={entry.url} target="_blank" rel="noreferrer">
           Session link
@@ -750,6 +817,12 @@ function Field({ label, value, disabled, onChange }: { label: string; value: str
       <textarea className="field mt-1" disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
+}
+
+function inclusiveDays(start: string, end: string): number {
+  const from = new Date(`${start.slice(0, 10)}T00:00:00`);
+  const to = new Date(`${end.slice(0, 10)}T00:00:00`);
+  return Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
 }
 
 function groupDays(agenda: AgendaEntry[]): [string, AgendaEntry[]][] {

@@ -201,26 +201,60 @@ export async function openDataSource(dataSourceId: string): Promise<OpenedDataba
   };
 }
 
-export async function searchDatabases(query: string): Promise<{ id: string; title: string }[]> {
-  const versions = ["2025-09-03", "2022-06-28"] as const;
+export type DatabaseSearchHit = {
+  id: string;
+  title: string;
+  object?: string;
+  databaseId?: string;
+};
+
+export async function searchDatabases(query: string): Promise<DatabaseSearchHit[]> {
+  const attempts = [
+    { version: "2025-09-03" as const, value: "data_source" },
+    { version: "2022-06-28" as const, value: "database" },
+  ];
+  const hits = new Map<string, DatabaseSearchHit>();
   let lastError: unknown;
-  for (const version of versions) {
+  for (const attempt of attempts) {
     try {
-      const result = await notionFetch<{ results?: { object?: string; id: string; title?: { plain_text?: string }[] }[] }>("/search", {
+      const result = await notionFetch<{ results?: SearchEntry[] }>("/search", {
         method: "POST",
-        version,
-        body: { query, filter: { property: "object", value: "database" }, page_size: 10 },
+        version: attempt.version,
+        body: { query, filter: { property: "object", value: attempt.value }, page_size: 20 },
       });
-      return (result.results || [])
-        .filter((entry) => entry.id)
-        .map((entry) => ({ id: entry.id, title: readTitle(entry.title) || "" }));
+      for (const entry of result.results || []) {
+        if (!entry.id || hits.has(entry.id)) continue;
+        hits.set(entry.id, {
+          id: entry.id,
+          title: readTitle(entry.title) || entry.name || "",
+          object: entry.object,
+          databaseId: entry.parent?.type === "database_id" ? entry.parent.database_id : undefined,
+        });
+      }
     } catch (error) {
       lastError = error;
       if (!(error instanceof NotionRequestError)) throw error;
     }
   }
-  if (lastError instanceof NotionRequestError) throw lastError;
-  return [];
+  if (hits.size === 0 && lastError instanceof NotionRequestError && lastError.status >= 500) throw lastError;
+  return [...hits.values()];
+}
+
+export async function openSearchHit(hit: DatabaseSearchHit): Promise<OpenedDatabase | null> {
+  try {
+    if (hit.databaseId) return await openDatabase(hit.databaseId);
+    if (hit.object === "data_source") return await openDataSource(hit.id);
+    return await openDatabase(hit.id);
+  } catch (error) {
+    if (error instanceof NotionRequestError && (error.status === 401 || error.status === 403 || error.status === 404)) return null;
+    throw error;
+  }
+}
+
+export async function readPagePlainText(pageId: string): Promise<string> {
+  const lines: string[] = [];
+  await readBlocks(pageId, lines, 0);
+  return lines.join("\n").trim();
 }
 
 export async function queryDatabasePages(opened: OpenedDatabase): Promise<NotionPage[]> {
@@ -360,6 +394,14 @@ type NotionDatabase = {
   data_sources?: { id: string; name?: string }[];
 };
 
+type SearchEntry = {
+  object?: string;
+  id: string;
+  name?: string;
+  title?: { plain_text?: string }[];
+  parent?: { type?: string; database_id?: string };
+};
+
 type QueryResult = {
   results?: NotionPage[];
   has_more?: boolean;
@@ -376,6 +418,39 @@ export type NotionPage = {
   last_edited_time?: string;
   properties: Record<string, unknown>;
 };
+
+type NotionBlock = {
+  id: string;
+  type?: string;
+  has_children?: boolean;
+  [key: string]: unknown;
+};
+
+async function readBlocks(blockId: string, lines: string[], depth: number): Promise<void> {
+  if (depth > 3) return;
+  let cursor: string | undefined;
+  do {
+    const path = `/blocks/${blockId}/children?page_size=100${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ""}`;
+    const result = await notionFetch<{ results?: NotionBlock[]; has_more?: boolean; next_cursor?: string | null }>(path, { version: "2022-06-28" });
+    for (const block of result.results || []) {
+      const text = blockText(block);
+      if (text) lines.push(depth > 0 ? `${"  ".repeat(depth)}${text}` : text);
+      if (block.has_children) await readBlocks(block.id, lines, depth + 1);
+    }
+    cursor = result.has_more ? result.next_cursor || undefined : undefined;
+  } while (cursor);
+}
+
+function blockText(block: NotionBlock): string {
+  const type = block.type || "";
+  const body = block[type];
+  if (!body || typeof body !== "object") return "";
+  const rich = (body as { rich_text?: { plain_text?: string }[] }).rich_text;
+  const text = Array.isArray(rich) ? rich.map((part) => part.plain_text || "").join("").trim() : "";
+  if (!text) return "";
+  if (type === "bulleted_list_item" || type === "numbered_list_item" || type === "to_do") return `• ${text}`;
+  return text;
+}
 
 function readTitle(title?: { plain_text?: string }[]): string | undefined {
   const text = title?.map((part) => part.plain_text || "").join("").trim();

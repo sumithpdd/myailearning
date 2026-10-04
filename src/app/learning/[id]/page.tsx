@@ -26,6 +26,7 @@ export default async function LearningDetailPage({ params }: { params: Promise<{
         tasks={related.tasks}
         milestones={related.milestones}
         choices={related.choices}
+        sources={related.sources}
       />
     </div>
   );
