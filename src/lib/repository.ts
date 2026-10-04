@@ -71,6 +71,7 @@ export async function listItems(): Promise<ItemCollection> {
 export async function relatedForItem(itemId: string): Promise<{
   agenda: AgendaEntry[];
   tasks: LearningTask[];
+  milestones: LearningMilestone[];
   choices: RelatedChoices;
   warning?: string;
 }> {
@@ -78,6 +79,7 @@ export async function relatedForItem(itemId: string): Promise<{
   return {
     agenda: agendaForItem(snapshot, itemId),
     tasks: tasksForItem(snapshot, itemId),
+    milestones: snapshot.milestones.filter((milestone) => milestone.learningItemIds.some((id) => samePage(id, itemId))),
     choices: snapshot.choices,
     warning: snapshot.warning,
   };

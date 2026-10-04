@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, captureNote, createTask } from "@/lib/client-api";
@@ -46,12 +47,12 @@ export function QuickCapture() {
               <button type="button" className="rounded-xl px-3 py-2 text-left text-sm hover:bg-canvas" onClick={() => setMode("note")}>
                 Add note
               </button>
-              <a href="/learning/new" className="rounded-xl px-3 py-2 text-sm hover:bg-canvas">
+              <Link href="/learning/new" className="rounded-xl px-3 py-2 text-sm hover:bg-canvas">
                 Schedule learning
-              </a>
-              <a href="/learning/new" className="rounded-xl px-3 py-2 text-sm hover:bg-canvas">
+              </Link>
+              <Link href="/learning/new" className="rounded-xl px-3 py-2 text-sm hover:bg-canvas">
                 Add learning item
-              </a>
+              </Link>
             </div>
           ) : null}
           {mode === "task" ? (

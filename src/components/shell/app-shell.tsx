@@ -11,15 +11,22 @@ import type { NotionConnection } from "@/types/learning";
 
 const PRIMARY = [
   { href: "/", label: "Today" },
-  { href: "/tasks", label: "Tasks" },
+  { href: "/week", label: "Week" },
   { href: "/learning", label: "Learning" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/career", label: "Career" },
   { href: "/milestones", label: "Milestones" },
   { href: "/notes", label: "Notes" },
 ];
 
+const MOBILE = [
+  { href: "/", label: "Today" },
+  { href: "/week", label: "Week" },
+  { href: "/learning", label: "Learning" },
+  { href: "/tasks", label: "Tasks" },
+];
+
 const MORE = [
-  { href: "/week", label: "This Week" },
-  { href: "/career", label: "Career" },
   { href: "/focus", label: "Focus" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/events", label: "Events" },
@@ -80,7 +87,7 @@ export function AppShell({ children, connection }: { children: React.ReactNode; 
       </aside>
       <div className="min-w-0">{children}</div>
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-elev md:hidden">
-        {PRIMARY.map((item) => {
+        {MOBILE.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link key={item.href} href={item.href} className={cn("px-1 py-2 text-center text-[11px]", active ? "font-semibold text-accent" : "text-muted")}>
@@ -88,6 +95,9 @@ export function AppShell({ children, connection }: { children: React.ReactNode; 
             </Link>
           );
         })}
+        <button type="button" className="px-1 py-2 text-center text-[11px] text-muted" onClick={() => setOpen(true)}>
+          More
+        </button>
       </nav>
       <QuickCapture />
     </div>

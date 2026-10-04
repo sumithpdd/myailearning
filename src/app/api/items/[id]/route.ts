@@ -14,6 +14,7 @@ export async function GET(_request: Request, context: Context) {
     item,
     agenda: related.agenda,
     tasks: related.tasks,
+    milestones: related.milestones,
     mode: collection.mode,
     readOnly: collection.readOnly,
     warning: collection.warning || related.warning,

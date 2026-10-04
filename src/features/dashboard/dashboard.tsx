@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { WorkList } from "@/components/execute/work-list";
 import { ModeBanner, ProgressBar } from "@/components/ui";
-import { careerPath } from "@/lib/career";
+import { careerPath, daysLabel } from "@/lib/career";
+import { upcomingGatherings } from "@/lib/item-experience";
 import { formatDisplayDate, todayISO } from "@/lib/dates";
 import {
-  approachingDeadlines,
   comingUp,
-  currentFocus,
   formatDayHeading,
   formatMinutes,
   greeting,
@@ -44,11 +43,8 @@ export function Dashboard({
   const step = nextStep(tasks, agenda, items, now);
   const notes = recentNotes(items, tasks, agenda, 4);
   const week = weekStrip(tasks, agenda, now);
-  const deadlines = approachingDeadlines(items, now);
-  const focus = currentFocus(items, step);
   const path = careerPath(items, catalog.capability);
-  const planned = [...today.scheduled, ...overdue].reduce((sum, block) => sum + (block.durationMinutes || 0), 0);
-  const openToday = today.scheduled.filter((block) => !block.completed).length + overdue.length;
+  const gatherings = upcomingGatherings(items, now);
   const todayKey = todayISO(now);
 
   return (
@@ -57,17 +53,31 @@ export function Dashboard({
       <header>
         <p className="text-sm text-muted">{formatDayHeading(now)}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{greeting(now)}</h1>
-        <p className="mt-2 text-sm text-muted">
-          {[
-            openToday ? `${openToday} open today` : "Nothing scheduled today",
-            planned ? `${formatMinutes(planned)} planned` : "",
-            deadlines.length ? `${deadlines.length} deadline${deadlines.length === 1 ? "" : "s"} approaching` : "",
-            focus ? `${focus} is the current focus` : "",
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
       </header>
+
+      <section className="mt-8">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Next best action</h2>
+        {step ? (
+          <div className="mt-3 border-y border-line py-4">
+            {step.context ? <p className="text-sm text-muted">{step.context}</p> : null}
+            <p className="text-xl font-semibold leading-7">{step.title}</p>
+            <p className="mt-1 text-sm text-muted">{[formatMinutes(step.minutes), step.capability, ...step.meta].filter(Boolean).join(" · ")}</p>
+            {step.line ? <p className="mt-2 text-sm leading-6">{step.line}</p> : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href={step.href} className="rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink">
+                Start
+              </Link>
+              {step.externalUrl ? (
+                <a href={step.externalUrl} className="rounded-full border border-line px-3 py-1.5 text-sm">
+                  Open link
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted">No open task, in-progress core item, or near deadline to recommend.</p>
+        )}
+      </section>
 
       <section className="mt-8">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Today</h2>
@@ -89,31 +99,6 @@ export function Dashboard({
             <p className="py-3 text-sm text-muted">No tasks for today. Use + to add one.</p>
           ) : null}
         </div>
-        <p className="mt-2 text-xs text-muted">Task duration is not a Notion field. A length appears only when a session has a start and an end.</p>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Next up</h2>
-        {step ? (
-          <div className="mt-3 border-y border-line py-4">
-            {step.context ? <p className="text-sm text-muted">{step.context}</p> : null}
-            <p className="text-xl font-semibold leading-7">{step.title}</p>
-            <p className="mt-1 text-sm text-muted">{[formatMinutes(step.minutes), ...step.meta].filter(Boolean).join(" · ")}</p>
-            {step.line ? <p className="mt-2 text-sm leading-6">{step.line}</p> : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href={step.href} className="rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink">
-                Start
-              </Link>
-              {step.externalUrl ? (
-                <a href={step.externalUrl} className="rounded-full border border-line px-3 py-1.5 text-sm">
-                  Open link
-                </a>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted">No open task, in-progress core item, or near deadline to recommend.</p>
-        )}
       </section>
 
       <section className="mt-8">
@@ -123,54 +108,48 @@ export function Dashboard({
             Tasks
           </Link>
         </div>
-        <WorkList blocks={upcoming} empty="Nothing dated in the next two weeks." />
+        {gatherings.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {gatherings.slice(0, 3).map((item) => (
+              <li key={item.id}>
+                <Link href={`/learning/${item.id}`} className="font-medium hover:text-accent">
+                  {item.name}
+                </Link>
+                <p className="text-sm text-muted">{[daysLabel(item, now), formatDisplayDate(item.startDate), item.location].filter(Boolean).join(" · ")}</p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <WorkList blocks={upcoming} empty={gatherings.length > 0 ? "No other dated work in the next two weeks." : "Nothing dated in the next two weeks."} />
       </section>
 
       <section className="mt-8">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Milestones</h2>
-          <Link href="/milestones" className="text-sm text-accent">
-            Path
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Career momentum</h2>
+          <Link href="/career" className="text-sm text-accent">
+            Career
           </Link>
         </div>
-        {milestones.length > 0 ? (
-          <ul className="mt-3 space-y-3">
-            {milestones.slice(0, 4).map((milestone) => (
-              <li key={milestone.id}>
-                <div className="flex items-baseline justify-between gap-3 text-sm">
-                  <Link href={`/milestones#${milestone.id}`} className="font-medium hover:text-accent">
-                    {milestone.name}
-                  </Link>
-                  <span className="text-muted">{milestone.target ? formatDisplayDate(milestone.target) : milestone.status}</span>
-                </div>
-                <div className="mt-1">
-                  <ProgressBar value={milestone.progress || 0} />
-                </div>
-                <p className="mt-1 text-xs text-muted">
-                  {[milestone.capability, milestone.progress !== undefined ? `${milestone.progress}%` : "", milestone.status].filter(Boolean).join(" · ")}
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <>
-            {path.length === 0 ? <p className="mt-3 text-sm text-muted">Milestones appear here once Learning Milestones is shared with the integration.</p> : null}
-            <ul className="mt-3 space-y-3">
-              {path.map((entry) => (
-                <li key={entry.name}>
-                  <div className="flex items-baseline justify-between gap-3 text-sm">
-                    <span className="font-medium">{entry.name}</span>
-                    <span className="text-muted">{entry.progress}</span>
-                  </div>
-                  <div className="mt-1">
-                    <ProgressBar value={ladderPercent(entry.progress)} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs text-muted">These bars are Career Progress on the learning plan. Milestone target dates show when that database is readable.</p>
-          </>
-        )}
+        {path.length === 0 ? <p className="mt-3 text-sm text-muted">Capability progress appears once learning items have a capability.</p> : null}
+        <ul className="mt-3 space-y-3">
+          {path.map((entry) => (
+            <li key={entry.name}>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="font-medium">{entry.name}</span>
+                <span className="text-muted">{entry.progress}</span>
+              </div>
+              <div className="mt-1">
+                <ProgressBar value={ladderPercent(entry.progress)} />
+              </div>
+            </li>
+          ))}
+        </ul>
+        {milestones[0] ? (
+          <p className="mt-3 text-sm text-muted">
+            Next milestone: {milestones[0].name}
+            {milestones[0].target ? ` · ${formatDisplayDate(milestones[0].target)}` : ""}
+          </p>
+        ) : null}
       </section>
 
       <section className="mt-8">

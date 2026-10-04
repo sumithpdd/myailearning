@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LearningDetail } from "@/components/learning/learning-detail";
-import { ModeBanner, PageFrame } from "@/components/ui";
+import { ModeBanner } from "@/components/ui";
 import { getItem, listCatalog, relatedForItem } from "@/lib/repository";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -16,16 +15,7 @@ export default async function LearningDetailPage({ params }: { params: Promise<{
   if (!item) notFound();
   const related = await relatedForItem(item.id);
   return (
-    <PageFrame
-      eyebrow={item.type}
-      title={item.name}
-      lede={item.provider}
-      action={
-        <Link href={`/learning/${item.id}/edit`} className="rounded-full border border-line px-4 py-2 text-sm">
-          Edit
-        </Link>
-      }
-    >
+    <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
       <ModeBanner mode={collection.mode} warning={collection.warning || related.warning} />
       <LearningDetail
         item={item}
@@ -34,8 +24,9 @@ export default async function LearningDetailPage({ params }: { params: Promise<{
         statuses={catalog.status}
         agenda={related.agenda}
         tasks={related.tasks}
+        milestones={related.milestones}
         choices={related.choices}
       />
-    </PageFrame>
+    </div>
   );
 }

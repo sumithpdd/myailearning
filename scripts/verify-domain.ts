@@ -8,7 +8,8 @@ import { mapNotionPage } from "../src/lib/notion/mapper";
 import { mapAgendaPage, mapTaskPage } from "../src/lib/notion/related";
 import { nextLearningAction, skillGaps } from "../src/lib/career";
 import { nextStep, presentTasks, taskViews, todayAgenda, type LinkedTask } from "../src/lib/execute";
-import type { LearningItem } from "../src/types/learning";
+import { isGathering, loadMinutes, nextMove, nextRung, progressStory, taskPhase } from "../src/lib/item-experience";
+import type { AgendaEntry, LearningItem, LearningTask } from "../src/types/learning";
 import { attentionReasons, suggestHorizon } from "../src/lib/plan";
 import { assessPace, progressByTrack, weekLoads } from "../src/lib/progress";
 import { TRACKS } from "../src/lib/constants";
@@ -187,5 +188,41 @@ assert.equal(nextStep([overdueTask, datedTask], [], [course], new Date(2026, 9, 
 assert.equal(nextStep([], [], [course], new Date(2026, 9, 3))?.title, "Continue the next module");
 assert.equal(taskViews([looseTask, doneTask], new Date(2026, 9, 3)).backlog[0]?.id, "loose");
 assert.equal(taskViews([doneTask], new Date(2026, 9, 3)).completed.length, 1);
+
+const sampleEvent = {
+  id: "event",
+  name: "Sample event",
+  type: "Event",
+  status: "Going",
+  priority: "Core",
+  tracks: [],
+  careerProgress: "Working",
+  startDate: "2026-10-07",
+  endDate: "2026-10-09",
+  source: "demo",
+} as LearningItem;
+const morning: AgendaEntry = {
+  id: "session",
+  learningItemIds: ["event"],
+  name: "Morning session",
+  start: "2026-10-07T10:00:00",
+  end: "2026-10-07T11:00:00",
+  attendance: "Planned",
+  plan: "Attend Live",
+  priority: "Must",
+  tracks: [],
+};
+const booked: LearningTask = { id: "booked", learningItemIds: ["event"], name: "Book ticket", status: "Done", taskType: "Booking", due: "2026-09-01" };
+const summary: LearningTask = { id: "summary", learningItemIds: ["event"], name: "Write summary", status: "To Do", taskType: "Follow-up", due: "2026-10-12", durationMinutes: 30 };
+assert.equal(isGathering("Conference"), true);
+assert.equal(isGathering("Book"), false);
+assert.equal(nextMove(sampleEvent, [morning], [summary])?.title, "Morning session");
+assert.equal(nextMove(sampleEvent, [], [summary])?.title, "Write summary");
+assert.equal(nextMove(sampleEvent, [], []), null);
+assert.equal(taskPhase(booked, sampleEvent), "Before");
+assert.equal(taskPhase(summary, sampleEvent), "After");
+assert.equal(progressStory(sampleEvent, [morning], [booked, summary]).slices.find((slice) => slice.label === "Tasks")?.percent, 50);
+assert.equal(nextRung("Working"), "Applied");
+assert.equal(loadMinutes([summary], [morning]).total, 90);
 
 console.log(`verify-domain ok (${items.length} demo items, core pace ${pace.corePercent}%)`);
