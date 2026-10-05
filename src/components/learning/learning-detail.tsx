@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
+import { EventCentre } from "@/components/learning/event-centre";
 import { Badge, priorityTone, ProgressBar, statusTone } from "@/components/ui";
 import { captureNote, createTask, removeItem, saveAgenda, saveItem, saveTask } from "@/lib/client-api";
 import { formatClock, formatDateRange, formatDisplayDate, formatSessionWhen, mapsDirectionsUrl, mapsSearchUrl } from "@/lib/dates";
@@ -87,6 +88,42 @@ export function LearningDetail({
         { id: "notes", label: "Notes" },
         { id: "resources", label: "Resources" },
       ];
+
+  if (gathering) {
+    return (
+      <div className="pb-8">
+        <EventCentre
+          item={item}
+          agenda={agenda}
+          tasks={tasks}
+          milestones={milestones}
+          choices={choices}
+          sources={sources}
+          readOnly={readOnly}
+          onOpenSession={setSessionId}
+          onNote={() => setNoteOpen(true)}
+        />
+        <div className="mt-10 space-y-3 border-t border-line pt-6 text-sm">
+          <details>
+            <summary className="cursor-pointer font-semibold">All tasks</summary>
+            <TasksTab item={item} tasks={tasks} choices={choices} readOnly={readOnly} gap={sourceGap(sources?.tasks)} />
+          </details>
+          <details>
+            <summary className="cursor-pointer font-semibold">Notes and evidence</summary>
+            <NotesTab item={item} agenda={agenda} tasks={tasks} readOnly={readOnly} />
+          </details>
+          <details>
+            <summary className="cursor-pointer font-semibold">Edit and metadata</summary>
+            <div className="mt-4">
+              <DetailsBody item={item} items={items} readOnly={readOnly} statuses={statuses} />
+            </div>
+          </details>
+        </div>
+        {session ? <SessionDrawer item={item} entry={session} choices={choices} readOnly={readOnly} onClose={() => setSessionId(null)} /> : null}
+        {noteOpen ? <NoteComposer itemId={item.id} readOnly={readOnly} onClose={() => setNoteOpen(false)} /> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="pb-16">

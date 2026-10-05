@@ -53,11 +53,81 @@ export function formatDisplayDate(iso?: string): string {
   }).format(parseISODate(iso));
 }
 
+export const EVENT_TIME_ZONE = "Europe/London";
+
+/** Calendar day in Europe/London. Date-only values stay on that day. */
+export function londonDateKey(iso?: string): string {
+  if (!iso) return "";
+  if (!iso.includes("T")) return iso.slice(0, 10);
+  const date = eventInstant(iso);
+  if (!date) return iso.slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: EVENT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export function londonToday(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: EVENT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Instant for an agenda timestamp. Zoned values are absolute. Bare times are London wall time. */
+export function eventInstant(iso: string): Date | null {
+  if (!iso.includes("T")) return null;
+  if (/([zZ]|[+-]\d{2}:?\d{2})$/.test(iso)) {
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const match = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?)/);
+  if (!match) return null;
+  const time = match[2].length === 5 ? `${match[2]}:00` : match[2];
+  return londonWallTime(match[1], time);
+}
+
+function londonWallTime(date: string, time: string): Date {
+  const utc = new Date(`${date}T${time}Z`);
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    timeZone: EVENT_TIME_ZONE,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(utc);
+  const pick = (type: string) => Number(formatted.find((part) => part.type === type)?.value || 0);
+  const londonAsUtc = Date.UTC(pick("year"), pick("month") - 1, pick("day"), pick("hour") % 24, pick("minute"), pick("second"));
+  return new Date(utc.getTime() - (londonAsUtc - utc.getTime()));
+}
+
 export function formatClock(iso?: string): string {
   if (!iso || !iso.includes("T")) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
+  const date = eventInstant(iso);
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: EVENT_TIME_ZONE,
+  }).format(date);
+}
+
+export function calendarUrl(item: { name: string; startDate?: string; endDate?: string; location?: string; url?: string }): string | null {
+  if (!item.startDate) return null;
+  const start = item.startDate.slice(0, 10).replace(/-/g, "");
+  const end = formatISODate(addDays(parseISODate(item.endDate || item.startDate), 1)).replace(/-/g, "");
+  const params = new URLSearchParams({ action: "TEMPLATE", text: item.name, dates: `${start}/${end}` });
+  if (item.location) params.set("location", item.location);
+  if (item.url) params.set("details", item.url);
+  return `https://calendar.google.com/calendar/render?${params}`;
 }
 
 export function formatSessionWhen(start?: string, end?: string): string {

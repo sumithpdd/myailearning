@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { LearningDetail } from "@/components/learning/learning-detail";
 import { ModeBanner } from "@/components/ui";
+import { isGathering } from "@/lib/item-experience";
 import { getItem, listCatalog, relatedForItem } from "@/lib/repository";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +16,7 @@ export default async function LearningDetailPage({ params }: { params: Promise<{
   if (!item) notFound();
   const related = await relatedForItem(item.id);
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
+    <div className={isGathering(item.type) ? "mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8" : "mx-auto w-full max-w-3xl px-4 py-5 sm:px-6"}>
       <ModeBanner mode={collection.mode} warning={collection.warning || related.warning} />
       <LearningDetail
         item={item}
